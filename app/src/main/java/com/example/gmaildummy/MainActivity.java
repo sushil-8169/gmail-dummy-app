@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.view.MotionEvent;
@@ -160,17 +161,45 @@ public class MainActivity extends Activity {
             if (active) rounded(c, 4, y + 2, 386, y + 70, 4, 0xfff1f3f4);
             rounded(c, 16, y + 16, 48, y + 48, 16, mail.color);
             setup(15, Color.WHITE, true); c.drawText(mail.initial, 27, y + 37, p);
+            float left = 62, right = 378, starLeft = 346;
+            c.save();
+            c.clipRect(left, y + 8, starLeft - 4, y + 68);
             setup(14, mail.unread ? text : 0xff5f6368, mail.unread);
-            c.drawText(mail.sender, 62, y + 28, p);
-            setup(12, 0xff5f6368, false); c.drawText(trim(mail.subject, 34), 62, y + 47, p);
-            setup(11, 0xff5f6368, false); c.drawText(trim(mail.preview, 42), 62, y + 63, p);
-            setup(11, 0xff5f6368, mail.unread); c.drawText(mail.time, 330, y + 28, p);
-            icon(c, "☆", 350, y + 56, 22, 0xff5f6368);
+            c.drawText(ellipsize(mail.sender, starLeft - left), left, y + 28, p);
+            setup(12, mail.unread ? text : 0xff5f6368, mail.unread);
+            c.drawText(ellipsize(mail.subject, starLeft - left), left, y + 47, p);
+            setup(11, 0xff5f6368, false);
+            c.drawText(ellipsize(mail.preview, starLeft - left), left, y + 63, p);
+            c.restore();
+            setup(11, 0xff5f6368, mail.unread);
+            p.setTextAlign(Paint.Align.RIGHT);
+            c.drawText(mail.time, right - 2, y + 28, p);
+            p.setTextAlign(Paint.Align.LEFT);
+            drawStar(c, 359, y + 53, 0xff5f6368);
             line(c, 62, y + 71, 378, y + 71, 0xfff1f3f4);
         }
 
-        private String trim(String value, int max) {
-            return value.length() > max ? value.substring(0, max - 1) + "…" : value;
+        private String ellipsize(String value, float maxWidth) {
+            if (p.measureText(value) <= maxWidth) return value;
+            String suffix = "…";
+            int end = value.length();
+            while (end > 0 && p.measureText(value.substring(0, end) + suffix) > maxWidth) end--;
+            return end == 0 ? suffix : value.substring(0, end) + suffix;
+        }
+
+        private void drawStar(Canvas c, float x, float y, int color) {
+            Path star = new Path();
+            for (int i = 0; i < 10; i++) {
+                double angle = -Math.PI / 2 + i * Math.PI / 5;
+                float radius = i % 2 == 0 ? 8 : 3.5f;
+                float px = x + (float) Math.cos(angle) * radius;
+                float py = y + (float) Math.sin(angle) * radius;
+                if (i == 0) star.moveTo(px, py); else star.lineTo(px, py);
+            }
+            star.close();
+            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.4f);
+            c.drawPath(star, p);
+            p.setStyle(Paint.Style.FILL);
         }
 
         private void drawDrawer(Canvas c, float viewportHeight) {
