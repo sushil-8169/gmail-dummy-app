@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.view.MotionEvent;
@@ -61,11 +60,13 @@ public class MainActivity extends Activity {
 
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
-            float w = getWidth(), scale = w / 390f;
+            float w = getWidth(), h = getHeight();
+            float scale = Math.min(w / 390f, h / 780f);
             c.save(); c.scale(scale, scale);
+            c.clipRect(0, 0, 390, 780);
             drawTopBar(c);
-            drawContent(c);
-            if (drawerOpen) drawDrawer(c);
+            drawContent(c, h / scale);
+            if (drawerOpen) drawDrawer(c, h / scale);
             c.restore();
         }
 
@@ -77,15 +78,28 @@ public class MainActivity extends Activity {
                 icon(c, "⋮", 352, 43, 25, 0xff5f6368);
             } else {
                 rounded(c, 12, 10, 378, 58, 28, 0xfff1f3f4);
-                icon(c, "☰", 28, 42, 22, 0xff5f6368);
+                drawHamburger(c, 36, 34, 0xff5f6368);
                 setup(16, 0xff5f6368, false); c.drawText("Search in mail", 62, 40, p);
-                icon(c, "⌕", 322, 42, 26, 0xff5f6368);
+                drawSearch(c, 330, 33, 0xff5f6368);
                 rounded(c, 346, 19, 370, 43, 12, 0xff7e57c2);
                 setup(13, Color.WHITE, true); c.drawText("A", 354, 36, p);
             }
         }
 
-        private void drawContent(Canvas c) {
+        private void drawHamburger(Canvas c, float x, float y, int color) {
+                p.setColor(color); p.setStrokeWidth(2); p.setStrokeCap(Paint.Cap.ROUND);
+                c.drawLine(x - 8, y - 6, x + 8, y - 6, p);
+                c.drawLine(x - 8, y, x + 8, y, p);
+                c.drawLine(x - 8, y + 6, x + 8, y + 6, p);
+            }
+
+        private void drawSearch(Canvas c, float x, float y, int color) {
+                p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2.2f);
+                c.drawCircle(x - 2, y - 2, 7, p); c.drawLine(x + 3, y + 3, x + 9, y + 9, p);
+                p.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawContent(Canvas c, float viewportHeight) {
             setup(22, text, false); c.drawText("Inbox", 16, 91, p);
             setup(13, 0xff5f6368, false); c.drawText("12,845", 76, 91, p);
             icon(c, "⌄", 348, 91, 20, 0xff5f6368);
@@ -95,18 +109,51 @@ public class MainActivity extends Activity {
             setup(12, 0xff5f6368, false); c.drawText("Updates", 162, 127, p); c.drawText("Promotions", 258, 127, p);
             line(c, 12, 139, 378, 139, 0xffdadce0);
             float y = 139;
+            float bottomNav = Math.min(780, viewportHeight);
+            float fabBottom = bottomNav - 74;
+            float listBottom = fabBottom - 12;
             for (int i = 0; i < mails.size(); i++) {
+                if (y + 72 > listBottom) break;
                 drawMail(c, mails.get(i), y, i == selected);
                 y += 72;
             }
-            rounded(c, 294, 638, 378, 694, 18, 0xffd3e3fd);
-            icon(c, "✎", 313, 674, 24, blue);
-            setup(14, blue, true); c.drawText("Compose", 342, 672, p);
-            line(c, 0, 710, 390, 710, 0xffdadce0);
-            icon(c, "▣", 73, 739, 22, blue);
-            icon(c, "▤", 187, 739, 22, 0xff5f6368);
-            icon(c, "◉", 300, 739, 22, 0xff5f6368);
-            setup(11, 0xff5f6368, false); c.drawText("Mail", 67, 758, p); c.drawText("Meet", 181, 758, p); c.drawText("Spaces", 290, 758, p);
+            rounded(c, 294, fabBottom - 56, 378, fabBottom, 18, 0xffd3e3fd);
+            drawCompose(c, 318, fabBottom - 28);
+            setup(14, blue, true); c.drawText("Compose", 342, fabBottom - 22, p);
+            line(c, 0, bottomNav - 64, 390, bottomNav - 64, 0xffdadce0);
+            drawInbox(c, 82, bottomNav - 30, blue);
+            drawMeet(c, 195, bottomNav - 30, 0xff5f6368);
+            drawChat(c, 307, bottomNav - 30, 0xff5f6368);
+            setup(11, 0xff5f6368, false); c.drawText("Mail", 67, bottomNav - 10, p); c.drawText("Meet", 181, bottomNav - 10, p); c.drawText("Spaces", 290, bottomNav - 10, p);
+        }
+
+        private void drawCompose(Canvas c, float x, float y) {
+            p.setColor(blue); p.setStrokeWidth(2.2f); p.setStyle(Paint.Style.STROKE);
+            c.drawLine(x - 7, y + 6, x + 5, y - 6, p);
+            c.drawLine(x - 8, y + 8, x - 3, y + 7, p);
+            c.drawLine(x + 5, y - 6, x + 8, y - 3, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawInbox(Canvas c, float x, float y, int color) {
+            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
+            c.drawRoundRect(new RectF(x - 10, y - 7, x + 10, y + 7), 3, 3, p);
+            c.drawLine(x - 9, y - 1, x - 3, y + 4, p); c.drawLine(x - 3, y + 4, x + 3, y - 2, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawMeet(Canvas c, float x, float y, int color) {
+            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
+            c.drawRoundRect(new RectF(x - 9, y - 7, x + 4, y + 7), 3, 3, p);
+            c.drawLine(x + 4, y - 4, x + 10, y - 7, p); c.drawLine(x + 10, y - 7, x + 10, y + 7, p); c.drawLine(x + 10, y + 7, x + 4, y + 4, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawChat(Canvas c, float x, float y, int color) {
+            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
+            c.drawRoundRect(new RectF(x - 10, y - 8, x + 10, y + 6), 4, 4, p);
+            c.drawLine(x - 5, y + 6, x - 8, y + 11, p); c.drawLine(x - 8, y + 11, x - 1, y + 6, p);
+            p.setStyle(Paint.Style.FILL);
         }
 
         private void drawMail(Canvas c, Mail mail, float y, boolean active) {
@@ -115,16 +162,20 @@ public class MainActivity extends Activity {
             setup(15, Color.WHITE, true); c.drawText(mail.initial, 27, y + 37, p);
             setup(14, mail.unread ? text : 0xff5f6368, mail.unread);
             c.drawText(mail.sender, 62, y + 28, p);
-            setup(12, 0xff5f6368, false); c.drawText(mail.subject, 62, y + 47, p);
-            setup(11, 0xff5f6368, false); c.drawText(mail.preview, 62, y + 63, p);
+            setup(12, 0xff5f6368, false); c.drawText(trim(mail.subject, 34), 62, y + 47, p);
+            setup(11, 0xff5f6368, false); c.drawText(trim(mail.preview, 42), 62, y + 63, p);
             setup(11, 0xff5f6368, mail.unread); c.drawText(mail.time, 330, y + 28, p);
             icon(c, "☆", 350, y + 56, 22, 0xff5f6368);
             line(c, 62, y + 71, 378, y + 71, 0xfff1f3f4);
         }
 
-        private void drawDrawer(Canvas c) {
+        private String trim(String value, int max) {
+            return value.length() > max ? value.substring(0, max - 1) + "…" : value;
+        }
+
+        private void drawDrawer(Canvas c, float viewportHeight) {
             p.setColor(0x55000000); c.drawRect(280, 0, 390, 780, p);
-            rounded(c, 0, 0, 310, 780, 0, Color.WHITE);
+            rounded(c, 0, 0, 310, Math.min(780, viewportHeight), 0, Color.WHITE);
             setup(22, 0xff5f6368, false); c.drawText("Gmail", 25, 48, p);
             setup(13, 0xff5f6368, false); c.drawText("A  alex.johnson@gmail.com", 25, 81, p);
             line(c, 0, 98, 310, 98, 0xffdadce0);
@@ -149,13 +200,13 @@ public class MainActivity extends Activity {
         }
 
         @Override public boolean onTouchEvent(MotionEvent e) {
-            float s = getWidth() / 390f, x = e.getX() / s, y = e.getY() / s;
+            float s = Math.min(getWidth() / 390f, getHeight() / 780f), x = e.getX() / s, y = e.getY() / s;
             if (e.getAction() == MotionEvent.ACTION_DOWN) { downX = x; downY = y; return true; }
             if (e.getAction() == MotionEvent.ACTION_UP) {
                 if (drawerOpen) { if (x > 310) drawerOpen = false; else if (y > 100 && y < 370) drawerOpen = false; invalidate(); return true; }
                 if (downY < 70 && downX < 55) drawerOpen = true;
                 else if (downY < 70 && downX > 280) searchOpen = true;
-                else if (downY > 638 && downY < 700) Toast.makeText(MainActivity.this, "Compose a new message", Toast.LENGTH_SHORT).show();
+                else if (downY > (getHeight() / (getWidth() / 390f)) - 140) Toast.makeText(MainActivity.this, "Compose a new message", Toast.LENGTH_SHORT).show();
                 else if (downY > 139 && downY < 643) {
                     selected = Math.max(0, Math.min(mails.size() - 1, (int)((downY - 139) / 72)));
                     mails.get(selected).unread = false;
