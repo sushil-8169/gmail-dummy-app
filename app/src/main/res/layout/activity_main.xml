@@ -3,7 +3,7 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface">
+    android:background="@color/bg">
 
     <LinearLayout
         android:id="@+id/content"
@@ -11,49 +11,43 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Top bar: search pill, swapped for the contextual bar while mails are selected -->
+        <!-- Top bar: menu, search pill, account. Swapped for the contextual bar while mails are selected. -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp">
+            android:paddingTop="8dp">
 
             <LinearLayout
                 android:id="@+id/search_bar"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:background="@drawable/bg_search"
+                android:layout_height="64dp"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="12dp">
 
                 <ImageView
                     android:id="@+id/btn_menu"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="4dp"
-                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    style="@style/ToolbarIcon"
                     android:contentDescription="Open navigation drawer"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_menu"
-                    android:tint="@color/on_surface_variant" />
+                    android:src="@drawable/ic_menu" />
 
                 <EditText
                     android:id="@+id/search_field"
                     android:layout_width="0dp"
-                    android:layout_height="match_parent"
+                    android:layout_height="52dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
-                    android:background="@null"
+                    android:background="@drawable/bg_search"
                     android:focusable="false"
                     android:focusableInTouchMode="false"
                     android:fontFamily="sans-serif"
-                    android:hint="Search in mail"
+                    android:gravity="center"
+                    android:hint="Search in emails"
                     android:imeOptions="actionSearch"
                     android:inputType="text"
-                    android:paddingStart="0dp"
-                    android:paddingEnd="0dp"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
                     android:singleLine="true"
                     android:textColor="@color/on_surface"
                     android:textColorHint="@color/on_surface_variant"
@@ -61,22 +55,21 @@
 
                 <TextView
                     android:id="@+id/account"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginEnd="12dp"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="16dp"
                     android:background="@drawable/bg_account"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="sans-serif"
                     android:gravity="center"
                     android:text="A"
                     android:textColor="#FFFFFF"
-                    android:textSize="15sp" />
+                    android:textSize="18sp" />
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/selection_bar"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="64dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="4dp"
@@ -115,7 +108,7 @@
                     android:id="@+id/btn_mark_unread"
                     style="@style/ToolbarIcon"
                     android:contentDescription="Mark as unread"
-                    android:src="@drawable/ic_mail_outline" />
+                    android:src="@drawable/ic_mark_unread" />
             </LinearLayout>
         </FrameLayout>
 
@@ -133,7 +126,7 @@
                 android:dividerHeight="0dp"
                 android:listSelector="@android:color/transparent"
                 android:overScrollMode="ifContentScrolls"
-                android:paddingBottom="88dp"
+                android:paddingBottom="96dp"
                 android:scrollbarStyle="outsideOverlay" />
 
             <TextView
@@ -142,7 +135,7 @@
                 android:layout_height="match_parent"
                 android:fontFamily="sans-serif"
                 android:gravity="center"
-                android:paddingBottom="88dp"
+                android:paddingBottom="96dp"
                 android:textColor="@color/on_surface_variant"
                 android:textSize="16sp"
                 android:visibility="gone" />
@@ -150,7 +143,7 @@
             <LinearLayout
                 android:id="@+id/fab"
                 android:layout_width="wrap_content"
-                android:layout_height="56dp"
+                android:layout_height="60dp"
                 android:layout_gravity="bottom|end"
                 android:layout_margin="16dp"
                 android:background="@drawable/bg_fab"
@@ -159,26 +152,26 @@
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingEnd="20dp">
+                android:paddingStart="18dp"
+                android:paddingEnd="24dp">
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:contentDescription="Compose"
                     android:src="@drawable/ic_edit"
-                    android:tint="@color/on_compose_container" />
+                    android:tint="@color/on_fab" />
 
                 <TextView
                     android:id="@+id/fab_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="14dp"
                     android:fontFamily="sans-serif-medium"
                     android:singleLine="true"
                     android:text="Compose"
-                    android:textColor="@color/on_compose_container"
-                    android:textSize="14sp" />
+                    android:textColor="@color/on_fab"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -202,7 +195,7 @@
                     android:layout_weight="1"
                     android:fontFamily="sans-serif"
                     android:singleLine="true"
-                    android:textColor="#F4EFF4"
+                    android:textColor="@color/on_snackbar"
                     android:textSize="14sp" />
 
                 <TextView

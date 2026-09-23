@@ -9,7 +9,8 @@ final class Mail {
     final String category, sender, subject, snippet, time, attachment;
     final int color;
     String email, to = "me", body;
-    boolean unread, starred;
+    boolean unread, starred, important, verified;
+    int threadCount;
 
     Mail(String category, String sender, String subject, String snippet, String time,
          int color, boolean unread, boolean starred, String attachment) {
@@ -23,6 +24,9 @@ final class Mail {
     Mail from(String email) { this.email = email; return this; }
     Mail body(String body) { this.body = body; return this; }
     Mail to(String to) { this.to = to; return this; }
+    Mail important() { this.important = true; return this; }
+    Mail verified() { this.verified = true; return this; }
+    Mail thread(int count) { this.threadCount = count; return this; }
 
     boolean isOutgoing() { return category.equals("Sent") || category.equals("Drafts"); }
 

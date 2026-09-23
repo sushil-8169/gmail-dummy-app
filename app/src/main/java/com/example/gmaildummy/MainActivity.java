@@ -1,18 +1,14 @@
 package com.example.gmaildummy;
 
 import android.animation.LayoutTransition;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.SpannableString;
-import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
@@ -27,31 +23,24 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-public class MainActivity extends Activity {
-    private static final int ON_SURFACE = 0xFF1F1F1F;
-    private static final int ON_SURFACE_VARIANT = 0xFF444746;
-    private static final int SELECTED = 0xFFD3E3FD;
-    private static final int ON_SELECTED = 0xFF001D35;
-    private static final int CHECK = 0xFF0B57D0;
-    private static final int STAR = 0xFFF4B400;
-    private static final int GREEN = 0xFF188038, BLUE = 0xFF1A73E8, ORANGE = 0xFFE37400;
+public class MainActivity extends BaseActivity {
+    private static final int REQUEST_READ = 1, REQUEST_COMPOSE = 2;
     private static final int DRAWER_WIDTH_DP = 304;
 
     private static final Typeface REGULAR = Typeface.create("sans-serif", Typeface.NORMAL);
     private static final Typeface MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface BOLD = Typeface.create("sans-serif", Typeface.BOLD);
 
-    private static final int REQUEST_READ = 1, REQUEST_COMPOSE = 2;
-
     private final List<Mail> mails = MailStore.mails;
-    private final List<Mail> shown = new ArrayList<>();
+    /** Rows of the list: a {@link Mail}, or a category name for an Updates / Promotions / Social card. */
+    private final List<Object> rows = new ArrayList<>();
     private final Set<Mail> selected = new LinkedHashSet<>();
     private final List<Removed> lastRemoved = new ArrayList<>();
     private final MailAdapter adapter = new MailAdapter();
@@ -67,7 +56,7 @@ public class MainActivity extends Activity {
     private EditText searchField;
     private TextView selectionCount, folderLabel, emptyView, snackbarText, mailBadge;
     private ListView list;
-    private LinearLayout bottomNav, drawerList, categories;
+    private LinearLayout bottomNav, drawerList;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -89,19 +78,17 @@ public class MainActivity extends Activity {
         drawer = findViewById(R.id.drawer);
         drawerList = findViewById(R.id.drawer_list);
 
-        setupEdgeToEdge();
+        setupInsets();
         setupList();
         setupTopBar();
-        setupBottomNav();
+        mailBadge = buildBottomNav(bottomNav, () -> { if (!folder.equals("Primary")) selectFolder("Primary"); });
         setupFab();
         scrim.setOnClickListener(v -> closeDrawer());
         findViewById(R.id.snackbar_action).setOnClickListener(v -> undoRemove());
         refresh();
     }
 
-    // Draw behind the system bars (enforced from Android 15) and pad the UI by the insets.
-    private void setupEdgeToEdge() {
-        SystemBars.edgeToEdge(this);
+    private void setupInsets() {
         View content = findViewById(R.id.content);
         findViewById(R.id.root).setOnApplyWindowInsetsListener((v, insets) -> {
             int top = insets.getSystemWindowInsetTop();
@@ -115,10 +102,8 @@ public class MainActivity extends Activity {
     }
 
     private void setupList() {
-        View header = getLayoutInflater().inflate(R.layout.header_inbox, list, false);
-        folderLabel = header.findViewById(R.id.folder_label);
-        categories = header.findViewById(R.id.categories);
-        list.addHeaderView(header, null, false);
+        folderLabel = (TextView) getLayoutInflater().inflate(R.layout.header_inbox, list, false);
+        list.addHeaderView(folderLabel, null, false);
         list.setAdapter(adapter);
         list.setOnScrollListener(new AbsListView.OnScrollListener() {
             private int lastFirst, lastTop;
@@ -148,31 +133,11 @@ public class MainActivity extends Activity {
             }
         });
         searchField.setOnEditorActionListener((v, actionId, event) -> { hideKeyboard(); return true; });
-        account.setOnClickListener(v -> toast("alex.johnson@gmail.com"));
+        account.setOnClickListener(v -> toast(MailStore.ME));
         findViewById(R.id.btn_close_selection).setOnClickListener(v -> { selected.clear(); refresh(); });
         findViewById(R.id.btn_archive).setOnClickListener(v -> removeSelected("archived"));
         findViewById(R.id.btn_delete).setOnClickListener(v -> removeSelected("moved to Bin"));
         findViewById(R.id.btn_mark_unread).setOnClickListener(v -> toggleReadSelected());
-    }
-
-    private void setupBottomNav() {
-        mailBadge = addNavItem(R.drawable.ic_mail, "Mail", true);
-        addNavItem(R.drawable.ic_chat, "Chat", false);
-        addNavItem(R.drawable.ic_videocam, "Meet", false);
-    }
-
-    private TextView addNavItem(int icon, String label, boolean active) {
-        View item = getLayoutInflater().inflate(R.layout.item_nav, bottomNav, false);
-        ImageView iconView = item.findViewById(R.id.nav_icon);
-        iconView.setImageResource(icon);
-        iconView.setImageTintList(ColorStateList.valueOf(active ? ON_SELECTED : ON_SURFACE_VARIANT));
-        if (active) item.findViewById(R.id.nav_indicator).setBackgroundResource(R.drawable.bg_nav_indicator);
-        TextView labelView = item.findViewById(R.id.nav_label);
-        labelView.setText(label);
-        labelView.setTextColor(active ? ON_SURFACE : ON_SURFACE_VARIANT);
-        if (!active) item.setOnClickListener(v -> toast(label));
-        bottomNav.addView(item);
-        return item.findViewById(R.id.nav_badge);
     }
 
     private void setupFab() {
@@ -189,28 +154,36 @@ public class MainActivity extends Activity {
         if (fabExtended == extended) return;
         fabExtended = extended;
         fabLabel.setVisibility(extended ? View.VISIBLE : View.GONE);
-        fab.setPadding(dp(16), 0, dp(extended ? 20 : 16), 0);
+        fab.setPadding(dp(18), 0, dp(extended ? 24 : 18), 0);
     }
 
     private void refresh() {
-        shown.clear();
-        for (Mail m : mails) if (matches(m)) shown.add(m);
+        rows.clear();
         boolean inbox = folder.equals("Primary") && !searchMode;
+        Set<String> placed = new HashSet<>();
+        for (Mail m : mails) {
+            if (inbox && isCategory(m.category)) {
+                // Gmail shows each tab with new mail as one card, where its newest mail would be.
+                if (placed.add(m.category) && unreadIn(m.category) > 0) rows.add(m.category);
+            } else if (matches(m)) {
+                rows.add(m);
+            }
+        }
         folderLabel.setText(searchMode ? (query.isEmpty() ? "All mail" : "Results") : folder);
-        buildCategories(inbox);
         emptyView.setText(searchMode ? "No results for “" + query + "”" : "Nothing in " + folder);
-        emptyView.setVisibility(shown.isEmpty() && categories.getChildCount() == 0 ? View.VISIBLE : View.GONE);
+        emptyView.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
         adapter.notifyDataSetChanged();
 
         boolean selecting = !selected.isEmpty();
         selectionBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
         searchBar.setVisibility(selecting ? View.GONE : View.VISIBLE);
         selectionCount.setText(String.valueOf(selected.size()));
-
-        int unread = unreadIn("Primary");
-        mailBadge.setText(unread > 99 ? "99+" : String.valueOf(unread));
-        mailBadge.setVisibility(unread > 0 ? View.VISIBLE : View.GONE);
+        showUnreadBadge(mailBadge, unreadIn("Primary"));
         buildDrawer();
+    }
+
+    private static boolean isCategory(String category) {
+        return category.equals("Promotions") || category.equals("Social") || category.equals("Updates");
     }
 
     private boolean matches(Mail m) {
@@ -224,6 +197,7 @@ public class MainActivity extends Activity {
             case "All inboxes": return !m.isOutgoing();
             case "All mail": return !m.category.equals("Drafts");
             case "Starred": return m.starred;
+            case "Important": return m.important;
             default: return false;
         }
     }
@@ -240,31 +214,29 @@ public class MainActivity extends Activity {
         return count;
     }
 
-    // Gmail lists the other tabs that have new mail above the Primary inbox.
-    private void buildCategories(boolean visible) {
-        categories.removeAllViews();
-        if (!visible) return;
-        addCategory(R.drawable.ic_tag, GREEN, "Promotions");
-        addCategory(R.drawable.ic_people, BLUE, "Social");
-        addCategory(R.drawable.ic_info, ORANGE, "Updates");
+    private Mail newestIn(String category) {
+        for (Mail m : mails) if (m.category.equals(category)) return m;
+        return null;
     }
 
-    private void addCategory(int icon, int color, String name) {
-        int unread = unreadIn(name);
-        if (unread == 0) return;
-        List<String> senders = new ArrayList<>();
-        for (Mail m : mails) if (m.category.equals(name) && !senders.contains(m.sender)) senders.add(m.sender);
-        View row = getLayoutInflater().inflate(R.layout.item_category, categories, false);
-        ImageView iconView = row.findViewById(R.id.category_icon);
-        iconView.setImageResource(icon);
-        iconView.setImageTintList(ColorStateList.valueOf(color));
-        ((TextView) row.findViewById(R.id.category_title)).setText(name);
-        ((TextView) row.findViewById(R.id.category_snippet)).setText(TextUtils.join(", ", senders));
-        TextView badge = row.findViewById(R.id.category_badge);
-        badge.setText(unread + " new");
-        badge.setBackground(pill(color, 10));
-        row.setOnClickListener(v -> selectFolder(name));
-        categories.addView(row);
+    private static int categoryIcon(String category) {
+        switch (category) {
+            case "Promotions": return R.drawable.ic_tag;
+            case "Social": return R.drawable.ic_people;
+            default: return R.drawable.ic_info;
+        }
+    }
+
+    /** Icon, badge background and badge text colours for a category. */
+    private int[] categoryColors(String category) {
+        switch (category) {
+            case "Promotions":
+                return new int[] { color(R.color.cat_promotions), color(R.color.cat_promotions_bg), color(R.color.cat_promotions_text) };
+            case "Social":
+                return new int[] { color(R.color.cat_social), color(R.color.cat_social_bg), color(R.color.cat_social_text) };
+            default:
+                return new int[] { color(R.color.cat_updates), color(R.color.cat_updates_bg), color(R.color.cat_updates_text) };
+        }
     }
 
     private void onMailClick(Mail m) {
@@ -351,6 +323,7 @@ public class MainActivity extends Activity {
         account.setVisibility(View.GONE);
         bottomNav.setVisibility(View.GONE);
         fab.setVisibility(View.GONE);
+        searchField.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         searchField.setFocusable(true);
         searchField.setFocusableInTouchMode(true);
         searchField.requestFocus();
@@ -365,6 +338,7 @@ public class MainActivity extends Activity {
         searchField.setText("");
         searchField.clearFocus();
         searchField.setFocusable(false);
+        searchField.setGravity(Gravity.CENTER);
         hideKeyboard();
         menuButton.setImageResource(R.drawable.ic_menu);
         account.setVisibility(View.VISIBLE);
@@ -375,7 +349,7 @@ public class MainActivity extends Activity {
     }
 
     private void updateListPadding() {
-        list.setPadding(0, 0, 0, searchMode ? bottomInset + dp(8) : dp(88));
+        list.setPadding(0, 0, 0, searchMode ? bottomInset + dp(8) : dp(96));
     }
 
     private void selectFolder(String name) {
@@ -407,7 +381,7 @@ public class MainActivity extends Activity {
         drawerList.removeAllViews();
         TextView title = new TextView(this);
         title.setText("Gmail");
-        title.setTextColor(0xFFC5221F);
+        title.setTextColor(color(R.color.logo_red));
         title.setTextSize(22);
         title.setTypeface(REGULAR);
         title.setGravity(Gravity.CENTER_VERTICAL);
@@ -415,28 +389,28 @@ public class MainActivity extends Activity {
         drawerList.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64)));
 
         int primaryUnread = unreadIn("Primary");
-        drawerItem(R.drawable.ic_all_inbox, "All inboxes", count(primaryUnread), 0);
+        drawerItem(R.drawable.ic_all_inbox, "All inboxes", count(primaryUnread), false);
         drawerDivider();
-        drawerItem(R.drawable.ic_inbox, "Primary", count(primaryUnread), 0);
-        drawerItem(R.drawable.ic_tag, "Promotions", newCount("Promotions"), GREEN);
-        drawerItem(R.drawable.ic_people, "Social", newCount("Social"), BLUE);
-        drawerItem(R.drawable.ic_info, "Updates", newCount("Updates"), ORANGE);
+        drawerItem(R.drawable.ic_inbox, "Primary", count(primaryUnread), false);
+        drawerItem(R.drawable.ic_tag, "Promotions", newCount("Promotions"), true);
+        drawerItem(R.drawable.ic_people, "Social", newCount("Social"), true);
+        drawerItem(R.drawable.ic_info, "Updates", newCount("Updates"), true);
         drawerHeader("All labels");
-        drawerItem(R.drawable.ic_star_border, "Starred", "", 0);
-        drawerItem(R.drawable.ic_schedule, "Snoozed", "", 0);
-        drawerItem(R.drawable.ic_label_important, "Important", "", 0);
-        drawerItem(R.drawable.ic_send, "Sent", "", 0);
-        drawerItem(R.drawable.ic_schedule, "Scheduled", "", 0);
-        drawerItem(R.drawable.ic_draft, "Drafts", count(countIn("Drafts")), 0);
-        drawerItem(R.drawable.ic_mail_outline, "All mail", "", 0);
-        drawerItem(R.drawable.ic_report, "Spam", "", 0);
-        drawerItem(R.drawable.ic_delete, "Bin", "", 0);
+        drawerItem(R.drawable.ic_star_border, "Starred", "", false);
+        drawerItem(R.drawable.ic_schedule, "Snoozed", "", false);
+        drawerItem(R.drawable.ic_label_important, "Important", "", false);
+        drawerItem(R.drawable.ic_send, "Sent", "", false);
+        drawerItem(R.drawable.ic_schedule, "Scheduled", "", false);
+        drawerItem(R.drawable.ic_draft, "Drafts", count(countIn("Drafts")), false);
+        drawerItem(R.drawable.ic_mail_outline, "All mail", "", false);
+        drawerItem(R.drawable.ic_report, "Spam", "", false);
+        drawerItem(R.drawable.ic_delete, "Bin", "", false);
         drawerHeader("Google apps");
-        drawerItem(R.drawable.ic_calendar, "Calendar", "", 0);
-        drawerItem(R.drawable.ic_person, "Contacts", "", 0);
+        drawerItem(R.drawable.ic_calendar, "Calendar", "", false);
+        drawerItem(R.drawable.ic_person, "Contacts", "", false);
         drawerDivider();
-        drawerItem(R.drawable.ic_settings, "Settings", "", 0);
-        drawerItem(R.drawable.ic_help, "Help & feedback", "", 0);
+        drawerItem(R.drawable.ic_settings, "Settings", "", false);
+        drawerItem(R.drawable.ic_help, "Help & feedback", "", false);
     }
 
     private String count(int n) { return n > 0 ? String.valueOf(n) : ""; }
@@ -446,18 +420,19 @@ public class MainActivity extends Activity {
         return n > 0 ? n + " new" : "";
     }
 
-    private void drawerItem(int icon, String label, String count, int pillColor) {
+    private void drawerItem(int icon, String label, String count, boolean categoryPill) {
         boolean active = label.equals(folder) && !searchMode;
+        int fg = color(active ? R.color.on_drawer_selected : R.color.on_surface_variant);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(16), 0, dp(20), 0);
-        row.setBackground(new RippleDrawable(ColorStateList.valueOf(0x1F1F1F1F),
-                active ? pill(SELECTED, 28) : null, pill(Color.WHITE, 28)));
+        row.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33808080),
+                active ? pill(color(R.color.drawer_selected), 28) : null, pill(0xFFFFFFFF, 28)));
 
         ImageView iconView = new ImageView(this);
         iconView.setImageResource(icon);
-        iconView.setImageTintList(ColorStateList.valueOf(active ? ON_SELECTED : ON_SURFACE_VARIANT));
+        iconView.setImageTintList(ColorStateList.valueOf(fg));
         row.addView(iconView, new LinearLayout.LayoutParams(dp(24), dp(24)));
 
         TextView labelView = new TextView(this);
@@ -465,7 +440,7 @@ public class MainActivity extends Activity {
         labelView.setTextSize(14);
         labelView.setSingleLine(true);
         labelView.setTypeface(active ? BOLD : MEDIUM);
-        labelView.setTextColor(active ? ON_SELECTED : ON_SURFACE_VARIANT);
+        labelView.setTextColor(active ? fg : color(R.color.on_surface));
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         labelParams.setMarginStart(dp(20));
         row.addView(labelView, labelParams);
@@ -476,13 +451,14 @@ public class MainActivity extends Activity {
             countView.setTextSize(12);
             countView.setTypeface(active ? BOLD : MEDIUM);
             countView.setGravity(Gravity.CENTER);
-            if (pillColor != 0) {
-                countView.setTextColor(Color.WHITE);
-                countView.setBackground(pill(pillColor, 10));
+            if (categoryPill) {
+                int[] colors = categoryColors(label);
+                countView.setTextColor(colors[2]);
+                countView.setBackground(pill(colors[1], 10));
                 countView.setPadding(dp(8), 0, dp(8), 0);
                 row.addView(countView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(20)));
             } else {
-                countView.setTextColor(active ? ON_SELECTED : ON_SURFACE_VARIANT);
+                countView.setTextColor(fg);
                 row.addView(countView);
             }
         }
@@ -498,7 +474,7 @@ public class MainActivity extends Activity {
         header.setText(text);
         header.setTextSize(14);
         header.setTypeface(MEDIUM);
-        header.setTextColor(ON_SURFACE_VARIANT);
+        header.setTextColor(color(R.color.on_surface_variant));
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(28), dp(8), dp(16), 0);
         drawerList.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
@@ -506,7 +482,7 @@ public class MainActivity extends Activity {
 
     private void drawerDivider() {
         View divider = new View(this);
-        divider.setBackgroundColor(0xFFE1E3E1);
+        divider.setBackgroundColor(color(R.color.divider));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
         params.setMargins(dp(28), dp(8), dp(28), dp(8));
         drawerList.addView(divider, params);
@@ -514,7 +490,10 @@ public class MainActivity extends Activity {
 
     private void onDrawerItem(String label) {
         switch (label) {
-            case "Calendar": case "Contacts": case "Settings": case "Help & feedback":
+            case "Settings":
+                startActivity(new Intent(this, SettingsActivity.class));
+                break;
+            case "Calendar": case "Contacts": case "Help & feedback":
                 toast(label);
                 break;
             default:
@@ -540,95 +519,101 @@ public class MainActivity extends Activity {
         return (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
     }
 
-    private void toast(String text) {
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
-    }
-
-    private int dp(float value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private GradientDrawable pill(int color, int radiusDp) {
-        GradientDrawable d = new GradientDrawable();
-        d.setCornerRadius(dp(radiusDp));
-        d.setColor(color);
-        return d;
-    }
-
     // Gmail marks drafts in the list with a red "Draft" in place of the sender.
-    private static CharSequence draftLabel(Mail m) {
+    private CharSequence draftLabel(Mail m) {
         SpannableString label = new SpannableString(m.to.equals("me") ? "Draft" : "Draft, to " + m.to);
-        label.setSpan(new ForegroundColorSpan(0xFFD93025), 0, 5, 0);
+        label.setSpan(new ForegroundColorSpan(color(R.color.draft)), 0, 5, 0);
         return label;
     }
 
-    private static GradientDrawable oval(int color) {
-        GradientDrawable d = new GradientDrawable();
-        d.setShape(GradientDrawable.OVAL);
-        d.setColor(color);
-        return d;
-    }
-
     private class MailAdapter extends BaseAdapter {
-        @Override public int getCount() { return shown.size(); }
-        @Override public Mail getItem(int position) { return shown.get(position); }
+        @Override public int getCount() { return rows.size(); }
+        @Override public Object getItem(int position) { return rows.get(position); }
         @Override public long getItemId(int position) { return position; }
+        @Override public int getViewTypeCount() { return 2; }
+        @Override public int getItemViewType(int position) { return rows.get(position) instanceof Mail ? 0 : 1; }
 
         @Override public View getView(int position, View row, ViewGroup parent) {
-            Holder h;
-            if (row == null) {
-                row = getLayoutInflater().inflate(R.layout.item_mail, parent, false);
-                h = new Holder(row);
-                row.setTag(h);
+            Object item = rows.get(position);
+            if (item instanceof Mail) {
+                if (row == null) {
+                    row = getLayoutInflater().inflate(R.layout.item_mail, parent, false);
+                    row.setTag(new Holder(row));
+                }
+                bindMail((Holder) row.getTag(), (Mail) item);
             } else {
-                h = (Holder) row.getTag();
+                if (row == null) row = getLayoutInflater().inflate(R.layout.item_category, parent, false);
+                bindCategory(row, (String) item);
             }
-            Mail m = shown.get(position);
-            boolean isSelected = selected.contains(m);
-            row.setBackgroundColor(isSelected ? SELECTED : Color.TRANSPARENT);
-            h.avatar.setBackground(oval(isSelected ? CHECK : m.color));
-            h.avatar.setText(isSelected ? "" : m.isOutgoing() ? "A" : m.initial());
-            h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
-
-            if (m.category.equals("Drafts")) {
-                h.sender.setText(draftLabel(m));
-            } else {
-                h.sender.setText(m.category.equals("Sent") ? "To: " + m.to : m.sender);
-            }
-            h.subject.setText(m.subject);
-            h.time.setText(m.time);
-            h.snippet.setText(m.snippet);
-            int color = m.unread ? ON_SURFACE : ON_SURFACE_VARIANT;
-            Typeface face = m.unread ? BOLD : REGULAR;
-            for (TextView t : new TextView[] { h.sender, h.subject, h.time }) {
-                t.setTypeface(face);
-                t.setTextColor(color);
-            }
-
-            h.star.setImageResource(m.starred ? R.drawable.ic_star : R.drawable.ic_star_border);
-            h.star.setImageTintList(ColorStateList.valueOf(m.starred ? STAR : ON_SURFACE_VARIANT));
-            h.attachment.setVisibility(m.attachment == null ? View.GONE : View.VISIBLE);
-            if (m.attachment != null) h.attachmentName.setText(m.attachment);
-
-            row.setOnClickListener(v -> onMailClick(m));
-            row.setOnLongClickListener(v -> { toggleSelected(m); return true; });
-            h.avatarFrame.setOnClickListener(v -> toggleSelected(m));
-            h.star.setOnClickListener(v -> { m.starred = !m.starred; refresh(); });
             return row;
         }
     }
 
+    private void bindMail(Holder h, Mail m) {
+        boolean isSelected = selected.contains(m);
+        h.card.setBackground(pill(color(isSelected ? R.color.selected_row : R.color.card), 4));
+        h.avatar.setBackground(oval(isSelected ? color(R.color.check_bg) : m.color));
+        h.avatar.setText(isSelected ? "" : m.isOutgoing() ? "A" : m.initial());
+        h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
+
+        if (m.category.equals("Drafts")) h.sender.setText(draftLabel(m));
+        else h.sender.setText(m.category.equals("Sent") ? "To: " + m.to : m.sender);
+        h.threadCount.setText(m.threadCount > 1 ? String.valueOf(m.threadCount) : "");
+        h.important.setVisibility(m.important ? View.VISIBLE : View.GONE);
+        h.subject.setText(m.subject);
+        h.time.setText(m.time);
+        h.snippet.setText(m.snippet);
+        h.unreadDot.setVisibility(m.unread ? View.VISIBLE : View.GONE);
+        h.unreadDot.setBackground(oval(color(R.color.unread_dot)));
+        int text = color(m.unread ? R.color.on_surface : R.color.on_surface_variant);
+        Typeface face = m.unread ? BOLD : REGULAR;
+        for (TextView t : new TextView[] { h.sender, h.subject, h.time }) {
+            t.setTypeface(face);
+            t.setTextColor(text);
+        }
+
+        h.star.setImageResource(m.starred ? R.drawable.ic_star : R.drawable.ic_star_border);
+        h.star.setImageTintList(ColorStateList.valueOf(color(m.starred ? R.color.star_active : R.color.on_surface_variant)));
+        h.attachment.setVisibility(m.attachment == null ? View.GONE : View.VISIBLE);
+        if (m.attachment != null) h.attachmentName.setText(m.attachment);
+
+        h.card.setOnClickListener(v -> onMailClick(m));
+        h.card.setOnLongClickListener(v -> { toggleSelected(m); return true; });
+        h.avatarFrame.setOnClickListener(v -> toggleSelected(m));
+        h.star.setOnClickListener(v -> { m.starred = !m.starred; refresh(); });
+    }
+
+    private void bindCategory(View row, String category) {
+        int[] colors = categoryColors(category);
+        ImageView icon = row.findViewById(R.id.category_icon);
+        icon.setImageResource(categoryIcon(category));
+        icon.setImageTintList(ColorStateList.valueOf(colors[0]));
+        ((TextView) row.findViewById(R.id.category_title)).setText(category);
+        Mail newest = newestIn(category);
+        ((TextView) row.findViewById(R.id.category_snippet))
+                .setText(newest == null ? "" : newest.sender + " — " + newest.subject);
+        TextView badge = row.findViewById(R.id.category_badge);
+        badge.setText(unreadIn(category) + " new");
+        badge.setTextColor(colors[2]);
+        badge.setBackground(pill(colors[1], 14));
+        row.setOnClickListener(v -> selectFolder(category));
+    }
+
     private static class Holder {
-        final View avatarFrame, check, attachment;
-        final TextView avatar, sender, time, subject, snippet, attachmentName;
+        final View card, avatarFrame, check, attachment, unreadDot, important;
+        final TextView avatar, sender, threadCount, time, subject, snippet, attachmentName;
         final ImageView star;
 
         Holder(View row) {
+            card = row.findViewById(R.id.card);
             avatarFrame = row.findViewById(R.id.avatar_frame);
             avatar = row.findViewById(R.id.avatar);
             check = row.findViewById(R.id.avatar_check);
+            important = row.findViewById(R.id.important);
             sender = row.findViewById(R.id.sender);
+            threadCount = row.findViewById(R.id.thread_count);
             time = row.findViewById(R.id.time);
+            unreadDot = row.findViewById(R.id.unread_dot);
             subject = row.findViewById(R.id.subject);
             snippet = row.findViewById(R.id.snippet);
             star = row.findViewById(R.id.star);

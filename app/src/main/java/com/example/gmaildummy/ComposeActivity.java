@@ -1,16 +1,14 @@
 package com.example.gmaildummy;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 /** Gmail's full-screen compose: new message, reply, reply all, forward, or an existing draft. */
-public class ComposeActivity extends Activity {
+public class ComposeActivity extends BaseActivity {
     static final String EXTRA_MODE = "mode";
     static final int MODE_NEW = 0, MODE_REPLY = 1, MODE_REPLY_ALL = 2, MODE_FORWARD = 3, MODE_DRAFT = 4;
 
@@ -22,7 +20,6 @@ public class ComposeActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_compose);
-        SystemBars.edgeToEdge(this);
         SystemBars.padRoot(findViewById(R.id.root));
 
         to = findViewById(R.id.to);
@@ -147,9 +144,5 @@ public class ComposeActivity extends Activity {
 
     @Override public void onBackPressed() {
         close();
-    }
-
-    private void toast(String text) {
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 }

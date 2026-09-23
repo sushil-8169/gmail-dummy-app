@@ -1,6 +1,5 @@
 package com.example.gmaildummy;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
@@ -8,21 +7,18 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
-import android.text.style.AbsoluteSizeSpan;
-import android.text.style.ForegroundColorSpan;
 import android.text.style.ReplacementSpan;
-import android.text.style.TypefaceSpan;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
-import android.widget.Toast;
 
 /** Gmail's conversation view for a single message. */
-public class ReadActivity extends Activity {
+public class ReadActivity extends BaseActivity {
     static final String EXTRA_ID = "mail_id";
     static final String EXTRA_ACTION = "action";
     static final String EXTRA_MESSAGE = "message";
@@ -30,6 +26,7 @@ public class ReadActivity extends Activity {
 
     private Mail mail;
     private ImageView star;
+    private TextView subject;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -38,35 +35,24 @@ public class ReadActivity extends Activity {
         mail.unread = false;
 
         setContentView(R.layout.activity_read);
-        SystemBars.edgeToEdge(this);
-        SystemBars.padRoot(findViewById(R.id.root));
+        View root = findViewById(R.id.root);
+        LinearLayout nav = findViewById(R.id.bottom_nav);
+        showUnreadBadge(buildBottomNav(nav, this::finish), unreadPrimary());
+        padForSystemBars(root, root, nav);
 
-        TextView subject = findViewById(R.id.subject);
-        SpannableStringBuilder title = new SpannableStringBuilder(mail.subject).append("  ");
-        int chipStart = title.length();
-        title.append(labelFor(mail));
-        title.setSpan(new ChipSpan(), chipStart, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        subject.setText(title);
+        subject = findViewById(R.id.subject);
+        bindSubject();
 
         star = findViewById(R.id.star);
         star.setOnClickListener(v -> { mail.starred = !mail.starred; bindStar(); });
         bindStar();
 
         TextView avatar = findViewById(R.id.avatar);
-        GradientDrawable circle = new GradientDrawable();
-        circle.setShape(GradientDrawable.OVAL);
-        circle.setColor(mail.color);
-        avatar.setBackground(circle);
+        avatar.setBackground(oval(mail.color));
         avatar.setText(mail.isOutgoing() ? "A" : mail.initial());
-
-        String name = mail.isOutgoing() ? "me" : mail.sender;
-        SpannableStringBuilder sender = new SpannableStringBuilder(name);
-        sender.setSpan(new TypefaceSpan("sans-serif-medium"), 0, name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        int timeStart = sender.length() + 2;
-        sender.append("  ").append(mail.time);
-        sender.setSpan(new AbsoluteSizeSpan(12, true), timeStart, sender.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        sender.setSpan(new ForegroundColorSpan(0xFF444746), timeStart, sender.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ((TextView) findViewById(R.id.sender)).setText(sender);
+        ((TextView) findViewById(R.id.sender)).setText(mail.isOutgoing() ? "me" : mail.sender);
+        ((TextView) findViewById(R.id.date)).setText(mail.time);
+        findViewById(R.id.verified).setVisibility(mail.verified ? View.VISIBLE : View.GONE);
 
         TextView recipient = findViewById(R.id.recipient);
         TextView details = findViewById(R.id.details);
@@ -89,12 +75,35 @@ public class ReadActivity extends Activity {
         findViewById(R.id.btn_archive).setOnClickListener(v -> finishWith("archive"));
         findViewById(R.id.btn_delete).setOnClickListener(v -> finishWith("delete"));
         findViewById(R.id.btn_mark_unread).setOnClickListener(v -> { mail.unread = true; finish(); });
-        findViewById(R.id.btn_more).setOnClickListener(v -> toast("More options"));
-        findViewById(R.id.btn_more_sender).setOnClickListener(v -> toast("More options"));
+        findViewById(R.id.btn_more).setOnClickListener(this::showMailMenu);
+        findViewById(R.id.btn_more_sender).setOnClickListener(this::showReplyMenu);
+        findViewById(R.id.btn_react).setOnClickListener(v -> toast("Add emoji reaction"));
+        findViewById(R.id.btn_emoji).setOnClickListener(v -> toast("Add emoji reaction"));
         findViewById(R.id.btn_reply_top).setOnClickListener(v -> reply(ComposeActivity.MODE_REPLY));
-        setupReplyButton(R.id.btn_reply, ComposeActivity.MODE_REPLY);
-        setupReplyButton(R.id.btn_reply_all, ComposeActivity.MODE_REPLY_ALL);
-        setupReplyButton(R.id.btn_forward, ComposeActivity.MODE_FORWARD);
+        findViewById(R.id.btn_reply).setOnClickListener(v -> reply(ComposeActivity.MODE_REPLY));
+        findViewById(R.id.btn_forward).setOnClickListener(v -> reply(ComposeActivity.MODE_FORWARD));
+    }
+
+    private int unreadPrimary() {
+        int count = 0;
+        for (Mail m : MailStore.mails) if (m.unread && m.category.equals("Primary")) count++;
+        return count;
+    }
+
+    // Subject, then Gmail's importance marker and the folder chip ("Inbox") flowing inline after it.
+    private void bindSubject() {
+        SpannableStringBuilder title = new SpannableStringBuilder(mail.subject);
+        if (mail.important) {
+            title.append(" ");
+            int start = title.length();
+            title.append("￼");
+            title.setSpan(new IconSpan(R.drawable.ic_important, color(R.color.important)), start, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        title.append(" ");
+        int chipStart = title.length();
+        title.append(labelFor(mail));
+        title.setSpan(new ChipSpan(), chipStart, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        subject.setText(title);
     }
 
     private static String labelFor(Mail m) {
@@ -103,17 +112,35 @@ public class ReadActivity extends Activity {
 
     private void bindStar() {
         star.setImageResource(mail.starred ? R.drawable.ic_star : R.drawable.ic_star_border);
-        star.setImageTintList(ColorStateList.valueOf(mail.starred ? 0xFFF4B400 : 0xFF444746));
+        star.setImageTintList(ColorStateList.valueOf(color(mail.starred ? R.color.star_active : R.color.on_surface_variant)));
     }
 
-    // The pill buttons use 18dp icons, smaller than the 24dp vector default.
-    private void setupReplyButton(int id, int mode) {
-        TextView button = findViewById(id);
-        Drawable icon = button.getCompoundDrawablesRelative()[0];
-        int size = dp(18);
-        icon.setBounds(0, 0, size, size);
-        button.setCompoundDrawablesRelative(icon, null, null, null);
-        button.setOnClickListener(v -> reply(mode));
+    private void showMailMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, 1, 0, mail.important ? "Mark not important" : "Mark important");
+        menu.getMenu().add(0, 2, 0, "Move to");
+        menu.getMenu().add(0, 3, 0, "Snooze");
+        menu.getMenu().add(0, 4, 0, "Change labels");
+        menu.getMenu().add(0, 5, 0, "Report spam");
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) {
+                mail.important = !mail.important;
+                bindSubject();
+            } else {
+                toast(item.getTitle().toString());
+            }
+            return true;
+        });
+        menu.show();
+    }
+
+    private void showReplyMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, ComposeActivity.MODE_REPLY, 0, "Reply");
+        menu.getMenu().add(0, ComposeActivity.MODE_REPLY_ALL, 0, "Reply all");
+        menu.getMenu().add(0, ComposeActivity.MODE_FORWARD, 0, "Forward");
+        menu.setOnMenuItemClickListener(item -> { reply(item.getItemId()); return true; });
+        menu.show();
     }
 
     private void reply(int mode) {
@@ -135,40 +162,59 @@ public class ReadActivity extends Activity {
         finish();
     }
 
-    private void toast(String text) {
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    private static float centerOf(Paint paint, int baseline) {
+        return baseline + (paint.ascent() + paint.descent()) / 2f;
     }
 
-    private int dp(float value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+    /** Draws a tinted icon centred on the text line. */
+    private class IconSpan extends ReplacementSpan {
+        private final Drawable icon;
+        private final int size = dp(22);
+
+        IconSpan(int res, int tint) {
+            icon = getDrawable(res).mutate();
+            icon.setTint(tint);
+        }
+
+        @Override public int getSize(Paint paint, CharSequence text, int start, int end, Paint.FontMetricsInt fm) {
+            return size;
+        }
+
+        @Override public void draw(Canvas canvas, CharSequence text, int start, int end,
+                                   float x, int top, int y, int bottom, Paint paint) {
+            int cy = Math.round(centerOf(paint, y));
+            icon.setBounds(Math.round(x), cy - size / 2, Math.round(x) + size, cy + size / 2);
+            icon.draw(canvas);
+        }
     }
 
-    /** Draws the folder label ("Inbox") as a small grey chip inline after the subject, like Gmail. */
+    /** Draws the folder label ("Inbox") as a small tinted chip inline after the subject, like Gmail. */
     private class ChipSpan extends ReplacementSpan {
         private final Paint chipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         private Paint textPaint(Paint base) {
             Paint p = new Paint(base);
-            p.setTextSize(12 * getResources().getDisplayMetrics().scaledDensity);
+            p.setTextSize(14 * getResources().getDisplayMetrics().scaledDensity);
             p.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
-            p.setColor(0xFF444746);
+            p.setColor(color(R.color.chip_text));
             return p;
         }
 
         @Override public int getSize(Paint paint, CharSequence text, int start, int end, Paint.FontMetricsInt fm) {
-            return Math.round(textPaint(paint).measureText(text, start, end)) + dp(12);
+            return Math.round(textPaint(paint).measureText(text, start, end)) + dp(20);
         }
 
         @Override public void draw(Canvas canvas, CharSequence text, int start, int end,
                                    float x, int top, int y, int bottom, Paint paint) {
             Paint p = textPaint(paint);
-            float width = p.measureText(text, start, end) + dp(12);
-            float centerY = y + (paint.ascent() + paint.descent()) / 2f;
-            float half = dp(10);
-            chipPaint.setColor(0xFFE1E3E1);
-            canvas.drawRoundRect(new RectF(x, centerY - half, x + width, centerY + half), dp(4), dp(4), chipPaint);
-            float baseline = centerY - (p.ascent() + p.descent()) / 2f;
-            canvas.drawText(text, start, end, x + dp(6), baseline, p);
+            float left = x + dp(4);
+            float width = p.measureText(text, start, end) + dp(16);
+            float cy = centerOf(paint, y);
+            float half = dp(12);
+            chipPaint.setColor(color(R.color.chip_bg));
+            canvas.drawRoundRect(new RectF(left, cy - half, left + width, cy + half), dp(6), dp(6), chipPaint);
+            float baseline = cy - (p.ascent() + p.descent()) / 2f;
+            canvas.drawText(text, start, end, left + dp(8), baseline, p);
         }
     }
 }
