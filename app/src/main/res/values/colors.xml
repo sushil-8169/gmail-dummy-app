@@ -1,0 +1,18 @@
+<resources>
+    <!-- Gmail Material 3 light palette -->
+    <color name="surface">#FFFFFF</color>
+    <color name="on_surface">#1F1F1F</color>
+    <color name="on_surface_variant">#444746</color>
+    <color name="search_bar">#E9EEF6</color>
+    <color name="nav_bar">#F3F6FC</color>
+    <color name="compose_container">#C2E7FF</color>
+    <color name="on_compose_container">#001D35</color>
+    <color name="nav_indicator">#D3E3FD</color>
+    <color name="selected_row">#D3E3FD</color>
+    <color name="primary">#0B57D0</color>
+    <color name="outline">#C4C7C5</color>
+    <color name="badge">#C5221F</color>
+    <color name="snackbar">#313033</color>
+    <color name="snackbar_action">#A8C7FA</color>
+    <color name="scrim">#52000000</color>
+</resources>

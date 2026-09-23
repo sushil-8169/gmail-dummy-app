@@ -1,255 +1,637 @@
 package com.example.gmaildummy;
 
+import android.animation.LayoutTransition;
 import android.app.Activity;
-import android.graphics.Canvas;
+import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.MotionEvent;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AbsListView;
+import android.widget.BaseAdapter;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class MainActivity extends Activity {
-    @Override public void onCreate(Bundle state) {
+    private static final int ON_SURFACE = 0xFF1F1F1F;
+    private static final int ON_SURFACE_VARIANT = 0xFF444746;
+    private static final int SELECTED = 0xFFD3E3FD;
+    private static final int ON_SELECTED = 0xFF001D35;
+    private static final int CHECK = 0xFF0B57D0;
+    private static final int STAR = 0xFFF4B400;
+    private static final int GREEN = 0xFF188038, BLUE = 0xFF1A73E8, ORANGE = 0xFFE37400;
+    private static final int DRAWER_WIDTH_DP = 304;
+
+    private static final Typeface REGULAR = Typeface.create("sans-serif", Typeface.NORMAL);
+    private static final Typeface MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
+    private static final Typeface BOLD = Typeface.create("sans-serif", Typeface.BOLD);
+
+    private final List<Mail> mails = new ArrayList<>();
+    private final List<Mail> shown = new ArrayList<>();
+    private final Set<Mail> selected = new LinkedHashSet<>();
+    private final List<Removed> lastRemoved = new ArrayList<>();
+    private final MailAdapter adapter = new MailAdapter();
+    private final Runnable hideSnackbar = this::hideSnackbar;
+
+    private String folder = "Primary";
+    private String query = "";
+    private boolean searchMode, drawerOpen, fabExtended = true;
+    private int bottomInset;
+
+    private View searchBar, selectionBar, account, fab, fabLabel, scrim, drawer, snackbar;
+    private ImageView menuButton;
+    private EditText searchField;
+    private TextView selectionCount, folderLabel, emptyView, snackbarText, mailBadge;
+    private ListView list;
+    private LinearLayout bottomNav, drawerList, categories;
+
+    @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(Color.WHITE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        setContentView(new InboxView());
+        setContentView(R.layout.activity_main);
+        searchBar = findViewById(R.id.search_bar);
+        selectionBar = findViewById(R.id.selection_bar);
+        account = findViewById(R.id.account);
+        menuButton = findViewById(R.id.btn_menu);
+        searchField = findViewById(R.id.search_field);
+        selectionCount = findViewById(R.id.selection_count);
+        list = findViewById(R.id.list);
+        emptyView = findViewById(R.id.empty);
+        fab = findViewById(R.id.fab);
+        fabLabel = findViewById(R.id.fab_label);
+        snackbar = findViewById(R.id.snackbar);
+        snackbarText = findViewById(R.id.snackbar_text);
+        bottomNav = findViewById(R.id.bottom_nav);
+        scrim = findViewById(R.id.scrim);
+        drawer = findViewById(R.id.drawer);
+        drawerList = findViewById(R.id.drawer_list);
+
+        setupEdgeToEdge();
+        seedMails();
+        setupList();
+        setupTopBar();
+        setupBottomNav();
+        setupFab();
+        scrim.setOnClickListener(v -> closeDrawer());
+        findViewById(R.id.snackbar_action).setOnClickListener(v -> undoRemove());
+        refresh();
     }
 
-    private class InboxView extends View {
-        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final List<Mail> mails = new ArrayList<>();
-        private boolean drawerOpen = false, searchOpen = false;
-        private int selected = -1;
-        private float downX, downY;
-        private final int blue = Color.rgb(26, 115, 232), text = Color.rgb(32, 33, 36);
+    // Draw behind the status and navigation bars (enforced from Android 15) and pad the UI by the insets.
+    private void setupEdgeToEdge() {
+        int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= 27) {
+            flags |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        getWindow().getDecorView().setSystemUiVisibility(flags);
+        View content = findViewById(R.id.content);
+        findViewById(R.id.root).setOnApplyWindowInsetsListener((v, insets) -> {
+            int top = insets.getSystemWindowInsetTop();
+            bottomInset = insets.getSystemWindowInsetBottom();
+            content.setPadding(0, top, 0, 0);
+            bottomNav.setPadding(0, 0, 0, bottomInset);
+            drawer.setPadding(0, top, 0, bottomInset);
+            updateListPadding();
+            return insets;
+        });
+    }
 
-        InboxView() {
-            super(MainActivity.this);
-            p.setTypeface(android.graphics.Typeface.create("sans", 0));
-            mails.addAll(Arrays.asList(
-                new Mail("Google", "Your Google Account is ready to use", "Welcome to your new Google Account. Here are a few tips to help you get started.", "10:42 AM", "G", 0xffdb4437, true),
-                new Mail("Design team", "Q4 product launch ✨", "The latest mockups are ready for review. Let us know what you think!", "9:18 AM", "D", 0xff0f9d58, true),
-                new Mail("Priya Sharma", "Weekend plans", "Are we still on for brunch this Saturday? I found a lovely new place downtown.", "8:05 AM", "P", 0xffab47bc, true),
-                new Mail("Google Photos", "Your memories from this week", "Take a look back at the moments you captured this week.", "Yesterday", "G", 0xff4285f4, false),
-                new Mail("Medium Daily Digest", "Stories you might enjoy", "The latest ideas and perspectives from writers you follow.", "Yesterday", "M", 0xfff4b400, false),
-                new Mail("Alex Johnson", "Re: Project timeline", "Thanks for the update. I’ll share the revised timeline this afternoon.", "Sep 17", "A", 0xff00acc1, false),
-                new Mail("Spotify", "Made For You", "A fresh playlist picked just for you is waiting.", "Sep 16", "S", 0xff1db954, false)
-            ));
-            setBackgroundColor(Color.WHITE);
-        }
+    private void seedMails() {
+        mails.add(new Mail("Primary", "Priya Sharma", "Weekend plans", "Are we still on for brunch this Saturday? I found a lovely new place downtown.", "10:42 AM", 0xFF8E24AA, true, false, null));
+        mails.add(new Mail("Primary", "Design Team", "Q4 product launch deck ✨", "Hi all, the latest mockups are ready for review. Please leave your comments by Friday.", "9:18 AM", 0xFF00897B, true, false, "Q4_Launch_Deck.pdf"));
+        mails.add(new Mail("Primary", "Alex Johnson", "Re: Project timeline", "Thanks for the update. I’ll share the revised timeline this afternoon.", "8:05 AM", 0xFF039BE5, true, true, null));
+        mails.add(new Mail("Primary", "Rahul Verma", "Invoice for September", "Please find attached the invoice for September. Let me know if you have any questions.", "Sep 22", 0xFFF4511E, false, false, "Invoice_Sep_2026.pdf"));
+        mails.add(new Mail("Primary", "Neha Kapoor", "Birthday party pics 🎉", "Here are all the photos from Saturday! Thanks again for coming.", "Sep 22", 0xFFD81B60, false, true, null));
+        mails.add(new Mail("Primary", "Google", "Security alert", "A new sign-in on Pixel 9 was detected. If this was you, you don’t need to do anything.", "Sep 21", 0xFF1A73E8, false, false, null));
+        mails.add(new Mail("Primary", "Mom", "Dinner on Sunday?", "Your dad is making his famous biryani. Let me know if you can come!", "Sep 20", 0xFF43A047, false, false, null));
+        mails.add(new Mail("Primary", "Karan Mehta", "Offsite agenda", "Sharing the draft agenda for next week’s team offsite. Feel free to add topics.", "Sep 19", 0xFF3949AB, false, false, null));
+        mails.add(new Mail("Primary", "Sarah Lee", "Coffee next week?", "It’s been a while! Would love to catch up if you’re free Tuesday or Wednesday.", "Sep 18", 0xFF6D4C41, false, false, null));
+        mails.add(new Mail("Promotions", "Spotify", "Your Daily Mix is ready", "A fresh playlist picked just for you is waiting.", "7:30 AM", 0xFF1DB954, true, false, null));
+        mails.add(new Mail("Promotions", "Medium Daily Digest", "Stories you might enjoy", "The latest ideas and perspectives from writers you follow.", "6:10 AM", 0xFF212121, true, false, null));
+        mails.add(new Mail("Social", "LinkedIn", "You appeared in 12 searches this week", "See who’s looking at your profile and grow your network.", "9:02 AM", 0xFF0A66C2, true, false, null));
+        mails.add(new Mail("Social", "Meetup", "New event: Android Devs Bangalore", "Join us for talks on Compose, performance and more.", "Sep 21", 0xFFE53935, false, false, null));
+        mails.add(new Mail("Updates", "GitHub", "[gmail-dummy-app] Build succeeded", "Build APK workflow completed successfully on main.", "Sep 22", 0xFF24292F, false, false, null));
+        mails.add(new Mail("Updates", "Amazon.in", "Your order has shipped", "Your package is on its way and will arrive by Thursday.", "Sep 20", 0xFFFF9900, false, false, null));
+    }
 
-        private void setup(float size, int color, boolean bold) {
-            p.setTextSize(size); p.setColor(color);
-            p.setTypeface(android.graphics.Typeface.create("sans", bold ? 1 : 0));
-        }
-        private void rounded(Canvas c, float l, float t, float r, float b, float radius, int color) {
-            p.setColor(color); c.drawRoundRect(new RectF(l, t, r, b), radius, radius, p);
-        }
-        private void line(Canvas c, float x1, float y1, float x2, float y2, int color) {
-            p.setColor(color); p.setStrokeWidth(1); c.drawLine(x1, y1, x2, y2, p);
-        }
-        private void icon(Canvas c, String value, float x, float y, float size, int color) {
-            setup(size, color, false); c.drawText(value, x, y, p);
-        }
+    private void setupList() {
+        View header = getLayoutInflater().inflate(R.layout.header_inbox, list, false);
+        folderLabel = header.findViewById(R.id.folder_label);
+        categories = header.findViewById(R.id.categories);
+        list.addHeaderView(header, null, false);
+        list.setAdapter(adapter);
+        list.setOnScrollListener(new AbsListView.OnScrollListener() {
+            private int lastFirst, lastTop;
+            @Override public void onScrollStateChanged(AbsListView view, int state) { }
+            @Override public void onScroll(AbsListView view, int first, int visible, int total) {
+                View child = view.getChildAt(0);
+                int top = child == null ? 0 : child.getTop();
+                if (first == 0 && top >= 0) setFabExtended(true);
+                else if (first > lastFirst || (first == lastFirst && top < lastTop)) setFabExtended(false);
+                else if (first < lastFirst || (first == lastFirst && top > lastTop)) setFabExtended(true);
+                lastFirst = first;
+                lastTop = top;
+            }
+        });
+    }
 
-        @Override protected void onDraw(Canvas c) {
-            super.onDraw(c);
-            float w = getWidth(), h = getHeight();
-            float scale = Math.min(w / 390f, h / 780f);
-            c.save(); c.scale(scale, scale);
-            c.clipRect(0, 0, 390, 780);
-            drawTopBar(c);
-            drawContent(c, h / scale);
-            if (drawerOpen) drawDrawer(c, h / scale);
-            c.restore();
-        }
+    private void setupTopBar() {
+        menuButton.setOnClickListener(v -> { if (searchMode) exitSearch(); else openDrawer(); });
+        searchField.setOnClickListener(v -> { if (!searchMode) enterSearch(); });
+        searchField.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void afterTextChanged(Editable s) {
+                if (!searchMode) return;
+                query = s.toString().trim().toLowerCase(Locale.ROOT);
+                refresh();
+            }
+        });
+        searchField.setOnEditorActionListener((v, actionId, event) -> { hideKeyboard(); return true; });
+        account.setOnClickListener(v -> toast("alex.johnson@gmail.com"));
+        findViewById(R.id.btn_close_selection).setOnClickListener(v -> { selected.clear(); refresh(); });
+        findViewById(R.id.btn_archive).setOnClickListener(v -> removeSelected("archived"));
+        findViewById(R.id.btn_delete).setOnClickListener(v -> removeSelected("moved to Bin"));
+        findViewById(R.id.btn_mark_unread).setOnClickListener(v -> toggleReadSelected());
+    }
 
-        private void drawTopBar(Canvas c) {
-            if (searchOpen) {
-                rounded(c, 12, 10, 378, 58, 28, 0xfff1f3f4);
-                icon(c, "‹", 27, 43, 34, 0xff5f6368);
-                setup(16, text, false); c.drawText("Search mail", 62, 40, p);
-                icon(c, "⋮", 352, 43, 25, 0xff5f6368);
+    private void setupBottomNav() {
+        mailBadge = addNavItem(R.drawable.ic_mail, "Mail", true);
+        addNavItem(R.drawable.ic_chat, "Chat", false);
+        addNavItem(R.drawable.ic_videocam, "Meet", false);
+    }
+
+    private TextView addNavItem(int icon, String label, boolean active) {
+        View item = getLayoutInflater().inflate(R.layout.item_nav, bottomNav, false);
+        ImageView iconView = item.findViewById(R.id.nav_icon);
+        iconView.setImageResource(icon);
+        iconView.setImageTintList(ColorStateList.valueOf(active ? ON_SELECTED : ON_SURFACE_VARIANT));
+        if (active) item.findViewById(R.id.nav_indicator).setBackgroundResource(R.drawable.bg_nav_indicator);
+        TextView labelView = item.findViewById(R.id.nav_label);
+        labelView.setText(label);
+        labelView.setTextColor(active ? ON_SURFACE : ON_SURFACE_VARIANT);
+        if (!active) item.setOnClickListener(v -> toast(label));
+        bottomNav.addView(item);
+        return item.findViewById(R.id.nav_badge);
+    }
+
+    private void setupFab() {
+        fab.setOnClickListener(v -> toast("Compose"));
+        LayoutTransition fabTransition = new LayoutTransition();
+        fabTransition.enableTransitionType(LayoutTransition.CHANGING);
+        ((ViewGroup) fab).setLayoutTransition(fabTransition);
+        LayoutTransition frameTransition = new LayoutTransition();
+        frameTransition.enableTransitionType(LayoutTransition.CHANGING);
+        ((ViewGroup) fab.getParent()).setLayoutTransition(frameTransition);
+    }
+
+    private void setFabExtended(boolean extended) {
+        if (fabExtended == extended) return;
+        fabExtended = extended;
+        fabLabel.setVisibility(extended ? View.VISIBLE : View.GONE);
+        fab.setPadding(dp(16), 0, dp(extended ? 20 : 16), 0);
+    }
+
+    private void refresh() {
+        shown.clear();
+        for (Mail m : mails) if (matches(m)) shown.add(m);
+        boolean inbox = folder.equals("Primary") && !searchMode;
+        folderLabel.setText(searchMode ? (query.isEmpty() ? "All mail" : "Results") : folder);
+        buildCategories(inbox);
+        emptyView.setText(searchMode ? "No results for “" + query + "”" : "Nothing in " + folder);
+        emptyView.setVisibility(shown.isEmpty() && categories.getChildCount() == 0 ? View.VISIBLE : View.GONE);
+        adapter.notifyDataSetChanged();
+
+        boolean selecting = !selected.isEmpty();
+        selectionBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
+        searchBar.setVisibility(selecting ? View.GONE : View.VISIBLE);
+        selectionCount.setText(String.valueOf(selected.size()));
+
+        int unread = unreadIn("Primary");
+        mailBadge.setText(unread > 99 ? "99+" : String.valueOf(unread));
+        mailBadge.setVisibility(unread > 0 ? View.VISIBLE : View.GONE);
+        buildDrawer();
+    }
+
+    private boolean matches(Mail m) {
+        if (searchMode) {
+            return query.isEmpty()
+                    || (m.sender + " " + m.subject + " " + m.snippet).toLowerCase(Locale.ROOT).contains(query);
+        }
+        switch (folder) {
+            case "Primary": case "Promotions": case "Social": case "Updates": return m.category.equals(folder);
+            case "All inboxes": case "All mail": return true;
+            case "Starred": return m.starred;
+            default: return false;
+        }
+    }
+
+    private int unreadIn(String category) {
+        int count = 0;
+        for (Mail m : mails) if (m.unread && m.category.equals(category)) count++;
+        return count;
+    }
+
+    // Gmail lists the other tabs that have new mail above the Primary inbox.
+    private void buildCategories(boolean visible) {
+        categories.removeAllViews();
+        if (!visible) return;
+        addCategory(R.drawable.ic_tag, GREEN, "Promotions");
+        addCategory(R.drawable.ic_people, BLUE, "Social");
+        addCategory(R.drawable.ic_info, ORANGE, "Updates");
+    }
+
+    private void addCategory(int icon, int color, String name) {
+        int unread = unreadIn(name);
+        if (unread == 0) return;
+        List<String> senders = new ArrayList<>();
+        for (Mail m : mails) if (m.category.equals(name) && !senders.contains(m.sender)) senders.add(m.sender);
+        View row = getLayoutInflater().inflate(R.layout.item_category, categories, false);
+        ImageView iconView = row.findViewById(R.id.category_icon);
+        iconView.setImageResource(icon);
+        iconView.setImageTintList(ColorStateList.valueOf(color));
+        ((TextView) row.findViewById(R.id.category_title)).setText(name);
+        ((TextView) row.findViewById(R.id.category_snippet)).setText(TextUtils.join(", ", senders));
+        TextView badge = row.findViewById(R.id.category_badge);
+        badge.setText(unread + " new");
+        badge.setBackground(pill(color, 10));
+        row.setOnClickListener(v -> selectFolder(name));
+        categories.addView(row);
+    }
+
+    private void onMailClick(Mail m) {
+        if (!selected.isEmpty()) { toggleSelected(m); return; }
+        m.unread = false;
+        refresh();
+    }
+
+    private void toggleSelected(Mail m) {
+        if (!selected.remove(m)) selected.add(m);
+        refresh();
+    }
+
+    private void toggleReadSelected() {
+        boolean anyRead = false;
+        for (Mail m : selected) if (!m.unread) anyRead = true;
+        for (Mail m : selected) m.unread = anyRead;
+        selected.clear();
+        refresh();
+    }
+
+    private void removeSelected(String verb) {
+        lastRemoved.clear();
+        for (int i = 0; i < mails.size(); i++) {
+            if (selected.contains(mails.get(i))) lastRemoved.add(new Removed(i, mails.get(i)));
+        }
+        mails.removeAll(selected);
+        selected.clear();
+        refresh();
+        showSnackbar(lastRemoved.size() + " " + verb);
+    }
+
+    private void undoRemove() {
+        for (Removed r : lastRemoved) mails.add(Math.min(r.index, mails.size()), r.mail);
+        lastRemoved.clear();
+        hideSnackbar();
+        refresh();
+    }
+
+    private void showSnackbar(String text) {
+        snackbarText.setText(text);
+        snackbar.setVisibility(View.VISIBLE);
+        snackbar.removeCallbacks(hideSnackbar);
+        snackbar.postDelayed(hideSnackbar, 4000);
+        fab.animate().translationY(-dp(56)).setDuration(150).start();
+    }
+
+    private void hideSnackbar() {
+        snackbar.removeCallbacks(hideSnackbar);
+        snackbar.setVisibility(View.GONE);
+        fab.animate().translationY(0).setDuration(150).start();
+    }
+
+    private void enterSearch() {
+        searchMode = true;
+        selected.clear();
+        hideSnackbar();
+        menuButton.setImageResource(R.drawable.ic_arrow_back);
+        account.setVisibility(View.GONE);
+        bottomNav.setVisibility(View.GONE);
+        fab.setVisibility(View.GONE);
+        searchField.setFocusable(true);
+        searchField.setFocusableInTouchMode(true);
+        searchField.requestFocus();
+        searchField.post(() -> imm().showSoftInput(searchField, InputMethodManager.SHOW_IMPLICIT));
+        updateListPadding();
+        refresh();
+    }
+
+    private void exitSearch() {
+        searchMode = false;
+        query = "";
+        searchField.setText("");
+        searchField.clearFocus();
+        searchField.setFocusable(false);
+        hideKeyboard();
+        menuButton.setImageResource(R.drawable.ic_menu);
+        account.setVisibility(View.VISIBLE);
+        bottomNav.setVisibility(View.VISIBLE);
+        fab.setVisibility(View.VISIBLE);
+        updateListPadding();
+        refresh();
+    }
+
+    private void updateListPadding() {
+        list.setPadding(0, 0, 0, searchMode ? bottomInset + dp(8) : dp(88));
+    }
+
+    private void selectFolder(String name) {
+        folder = name;
+        selected.clear();
+        refresh();
+        list.setSelection(0);
+        setFabExtended(true);
+    }
+
+    private void openDrawer() {
+        drawerOpen = true;
+        drawer.setVisibility(View.VISIBLE);
+        scrim.setVisibility(View.VISIBLE);
+        drawer.setTranslationX(-dp(DRAWER_WIDTH_DP));
+        drawer.animate().translationX(0).setDuration(250).setInterpolator(new DecelerateInterpolator()).start();
+        scrim.animate().alpha(1).setDuration(250).start();
+    }
+
+    private void closeDrawer() {
+        drawerOpen = false;
+        drawer.animate().translationX(-dp(DRAWER_WIDTH_DP)).setDuration(200)
+                .withEndAction(() -> { if (!drawerOpen) drawer.setVisibility(View.GONE); }).start();
+        scrim.animate().alpha(0).setDuration(200)
+                .withEndAction(() -> { if (!drawerOpen) scrim.setVisibility(View.GONE); }).start();
+    }
+
+    private void buildDrawer() {
+        drawerList.removeAllViews();
+        TextView title = new TextView(this);
+        title.setText("Gmail");
+        title.setTextColor(0xFFC5221F);
+        title.setTextSize(22);
+        title.setTypeface(REGULAR);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        title.setPadding(dp(28), 0, dp(16), 0);
+        drawerList.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64)));
+
+        int primaryUnread = unreadIn("Primary");
+        drawerItem(R.drawable.ic_all_inbox, "All inboxes", count(primaryUnread), 0);
+        drawerDivider();
+        drawerItem(R.drawable.ic_inbox, "Primary", count(primaryUnread), 0);
+        drawerItem(R.drawable.ic_tag, "Promotions", newCount("Promotions"), GREEN);
+        drawerItem(R.drawable.ic_people, "Social", newCount("Social"), BLUE);
+        drawerItem(R.drawable.ic_info, "Updates", newCount("Updates"), ORANGE);
+        drawerHeader("All labels");
+        drawerItem(R.drawable.ic_star_border, "Starred", "", 0);
+        drawerItem(R.drawable.ic_schedule, "Snoozed", "", 0);
+        drawerItem(R.drawable.ic_label_important, "Important", "", 0);
+        drawerItem(R.drawable.ic_send, "Sent", "", 0);
+        drawerItem(R.drawable.ic_schedule, "Scheduled", "", 0);
+        drawerItem(R.drawable.ic_draft, "Drafts", "", 0);
+        drawerItem(R.drawable.ic_mail_outline, "All mail", "", 0);
+        drawerItem(R.drawable.ic_report, "Spam", "", 0);
+        drawerItem(R.drawable.ic_delete, "Bin", "", 0);
+        drawerHeader("Google apps");
+        drawerItem(R.drawable.ic_calendar, "Calendar", "", 0);
+        drawerItem(R.drawable.ic_person, "Contacts", "", 0);
+        drawerDivider();
+        drawerItem(R.drawable.ic_settings, "Settings", "", 0);
+        drawerItem(R.drawable.ic_help, "Help & feedback", "", 0);
+    }
+
+    private String count(int n) { return n > 0 ? String.valueOf(n) : ""; }
+
+    private String newCount(String category) {
+        int n = unreadIn(category);
+        return n > 0 ? n + " new" : "";
+    }
+
+    private void drawerItem(int icon, String label, String count, int pillColor) {
+        boolean active = label.equals(folder) && !searchMode;
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), 0, dp(20), 0);
+        row.setBackground(new RippleDrawable(ColorStateList.valueOf(0x1F1F1F1F),
+                active ? pill(SELECTED, 28) : null, pill(Color.WHITE, 28)));
+
+        ImageView iconView = new ImageView(this);
+        iconView.setImageResource(icon);
+        iconView.setImageTintList(ColorStateList.valueOf(active ? ON_SELECTED : ON_SURFACE_VARIANT));
+        row.addView(iconView, new LinearLayout.LayoutParams(dp(24), dp(24)));
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextSize(14);
+        labelView.setSingleLine(true);
+        labelView.setTypeface(active ? BOLD : MEDIUM);
+        labelView.setTextColor(active ? ON_SELECTED : ON_SURFACE_VARIANT);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        labelParams.setMarginStart(dp(20));
+        row.addView(labelView, labelParams);
+
+        if (!count.isEmpty()) {
+            TextView countView = new TextView(this);
+            countView.setText(count);
+            countView.setTextSize(12);
+            countView.setTypeface(active ? BOLD : MEDIUM);
+            countView.setGravity(Gravity.CENTER);
+            if (pillColor != 0) {
+                countView.setTextColor(Color.WHITE);
+                countView.setBackground(pill(pillColor, 10));
+                countView.setPadding(dp(8), 0, dp(8), 0);
+                row.addView(countView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(20)));
             } else {
-                rounded(c, 12, 10, 378, 58, 28, 0xfff1f3f4);
-                drawHamburger(c, 36, 34, 0xff5f6368);
-                setup(16, 0xff5f6368, false); c.drawText("Search in mail", 62, 40, p);
-                drawSearch(c, 330, 33, 0xff5f6368);
-                rounded(c, 346, 19, 370, 43, 12, 0xff7e57c2);
-                setup(13, Color.WHITE, true); c.drawText("A", 354, 36, p);
+                countView.setTextColor(active ? ON_SELECTED : ON_SURFACE_VARIANT);
+                row.addView(countView);
             }
         }
 
-        private void drawHamburger(Canvas c, float x, float y, int color) {
-                p.setColor(color); p.setStrokeWidth(2); p.setStrokeCap(Paint.Cap.ROUND);
-                c.drawLine(x - 8, y - 6, x + 8, y - 6, p);
-                c.drawLine(x - 8, y, x + 8, y, p);
-                c.drawLine(x - 8, y + 6, x + 8, y + 6, p);
+        row.setOnClickListener(v -> onDrawerItem(label));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        params.setMargins(dp(12), 0, dp(12), 0);
+        drawerList.addView(row, params);
+    }
+
+    private void drawerHeader(String text) {
+        TextView header = new TextView(this);
+        header.setText(text);
+        header.setTextSize(14);
+        header.setTypeface(MEDIUM);
+        header.setTextColor(ON_SURFACE_VARIANT);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(28), dp(8), dp(16), 0);
+        drawerList.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
+    }
+
+    private void drawerDivider() {
+        View divider = new View(this);
+        divider.setBackgroundColor(0xFFE1E3E1);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+        params.setMargins(dp(28), dp(8), dp(28), dp(8));
+        drawerList.addView(divider, params);
+    }
+
+    private void onDrawerItem(String label) {
+        switch (label) {
+            case "Calendar": case "Contacts": case "Settings": case "Help & feedback":
+                toast(label);
+                break;
+            default:
+                if (searchMode) exitSearch();
+                selectFolder(label);
+        }
+        closeDrawer();
+    }
+
+    @Override public void onBackPressed() {
+        if (drawerOpen) closeDrawer();
+        else if (!selected.isEmpty()) { selected.clear(); refresh(); }
+        else if (searchMode) exitSearch();
+        else if (!folder.equals("Primary")) selectFolder("Primary");
+        else super.onBackPressed();
+    }
+
+    private void hideKeyboard() {
+        imm().hideSoftInputFromWindow(searchField.getWindowToken(), 0);
+    }
+
+    private InputMethodManager imm() {
+        return (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+    }
+
+    private void toast(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    }
+
+    private int dp(float value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private GradientDrawable pill(int color, int radiusDp) {
+        GradientDrawable d = new GradientDrawable();
+        d.setCornerRadius(dp(radiusDp));
+        d.setColor(color);
+        return d;
+    }
+
+    private static GradientDrawable oval(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(color);
+        return d;
+    }
+
+    private class MailAdapter extends BaseAdapter {
+        @Override public int getCount() { return shown.size(); }
+        @Override public Mail getItem(int position) { return shown.get(position); }
+        @Override public long getItemId(int position) { return position; }
+
+        @Override public View getView(int position, View row, ViewGroup parent) {
+            Holder h;
+            if (row == null) {
+                row = getLayoutInflater().inflate(R.layout.item_mail, parent, false);
+                h = new Holder(row);
+                row.setTag(h);
+            } else {
+                h = (Holder) row.getTag();
+            }
+            Mail m = shown.get(position);
+            boolean isSelected = selected.contains(m);
+            row.setBackgroundColor(isSelected ? SELECTED : Color.TRANSPARENT);
+            h.avatar.setBackground(oval(isSelected ? CHECK : m.color));
+            h.avatar.setText(isSelected ? "" : m.initial());
+            h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
+
+            h.sender.setText(m.sender);
+            h.subject.setText(m.subject);
+            h.time.setText(m.time);
+            h.snippet.setText(m.snippet);
+            int color = m.unread ? ON_SURFACE : ON_SURFACE_VARIANT;
+            Typeface face = m.unread ? BOLD : REGULAR;
+            for (TextView t : new TextView[] { h.sender, h.subject, h.time }) {
+                t.setTypeface(face);
+                t.setTextColor(color);
             }
 
-        private void drawSearch(Canvas c, float x, float y, int color) {
-                p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2.2f);
-                c.drawCircle(x - 2, y - 2, 7, p); c.drawLine(x + 3, y + 3, x + 9, y + 9, p);
-                p.setStyle(Paint.Style.FILL);
+            h.star.setImageResource(m.starred ? R.drawable.ic_star : R.drawable.ic_star_border);
+            h.star.setImageTintList(ColorStateList.valueOf(m.starred ? STAR : ON_SURFACE_VARIANT));
+            h.attachment.setVisibility(m.attachment == null ? View.GONE : View.VISIBLE);
+            if (m.attachment != null) h.attachmentName.setText(m.attachment);
+
+            row.setOnClickListener(v -> onMailClick(m));
+            row.setOnLongClickListener(v -> { toggleSelected(m); return true; });
+            h.avatarFrame.setOnClickListener(v -> toggleSelected(m));
+            h.star.setOnClickListener(v -> { m.starred = !m.starred; refresh(); });
+            return row;
+        }
+    }
+
+    private static class Holder {
+        final View avatarFrame, check, attachment;
+        final TextView avatar, sender, time, subject, snippet, attachmentName;
+        final ImageView star;
+
+        Holder(View row) {
+            avatarFrame = row.findViewById(R.id.avatar_frame);
+            avatar = row.findViewById(R.id.avatar);
+            check = row.findViewById(R.id.avatar_check);
+            sender = row.findViewById(R.id.sender);
+            time = row.findViewById(R.id.time);
+            subject = row.findViewById(R.id.subject);
+            snippet = row.findViewById(R.id.snippet);
+            star = row.findViewById(R.id.star);
+            attachment = row.findViewById(R.id.attachment);
+            attachmentName = row.findViewById(R.id.attachment_name);
+        }
+    }
+
+    private static class Mail {
+        final String category, sender, subject, snippet, time, attachment;
+        final int color;
+        boolean unread, starred;
+
+        Mail(String category, String sender, String subject, String snippet, String time,
+             int color, boolean unread, boolean starred, String attachment) {
+            this.category = category; this.sender = sender; this.subject = subject; this.snippet = snippet;
+            this.time = time; this.color = color; this.unread = unread; this.starred = starred;
+            this.attachment = attachment;
         }
 
-        private void drawContent(Canvas c, float viewportHeight) {
-            setup(22, text, false); c.drawText("Inbox", 16, 91, p);
-            setup(13, 0xff5f6368, false); c.drawText("12,845", 76, 91, p);
-            icon(c, "⌄", 348, 91, 20, 0xff5f6368);
-            rounded(c, 12, 105, 378, 139, 17, 0xffe8f0fe);
-            icon(c, "✉", 25, 128, 16, blue);
-            setup(13, blue, true); c.drawText("Primary", 52, 127, p);
-            setup(12, 0xff5f6368, false); c.drawText("Updates", 162, 127, p); c.drawText("Promotions", 258, 127, p);
-            line(c, 12, 139, 378, 139, 0xffdadce0);
-            float y = 139;
-            float bottomNav = Math.min(780, viewportHeight);
-            float fabBottom = bottomNav - 74;
-            float listBottom = fabBottom - 12;
-            for (int i = 0; i < mails.size(); i++) {
-                if (y + 72 > listBottom) break;
-                drawMail(c, mails.get(i), y, i == selected);
-                y += 72;
-            }
-            rounded(c, 294, fabBottom - 56, 378, fabBottom, 18, 0xffd3e3fd);
-            drawCompose(c, 318, fabBottom - 28);
-            setup(14, blue, true); c.drawText("Compose", 342, fabBottom - 22, p);
-            line(c, 0, bottomNav - 64, 390, bottomNav - 64, 0xffdadce0);
-            drawInbox(c, 82, bottomNav - 30, blue);
-            drawMeet(c, 195, bottomNav - 30, 0xff5f6368);
-            drawChat(c, 307, bottomNav - 30, 0xff5f6368);
-            setup(11, 0xff5f6368, false); c.drawText("Mail", 67, bottomNav - 10, p); c.drawText("Meet", 181, bottomNav - 10, p); c.drawText("Spaces", 290, bottomNav - 10, p);
-        }
+        String initial() { return sender.substring(0, 1).toUpperCase(Locale.ROOT); }
+    }
 
-        private void drawCompose(Canvas c, float x, float y) {
-            p.setColor(blue); p.setStrokeWidth(2.2f); p.setStyle(Paint.Style.STROKE);
-            c.drawLine(x - 7, y + 6, x + 5, y - 6, p);
-            c.drawLine(x - 8, y + 8, x - 3, y + 7, p);
-            c.drawLine(x + 5, y - 6, x + 8, y - 3, p);
-            p.setStyle(Paint.Style.FILL);
-        }
+    private static class Removed {
+        final int index;
+        final Mail mail;
 
-        private void drawInbox(Canvas c, float x, float y, int color) {
-            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
-            c.drawRoundRect(new RectF(x - 10, y - 7, x + 10, y + 7), 3, 3, p);
-            c.drawLine(x - 9, y - 1, x - 3, y + 4, p); c.drawLine(x - 3, y + 4, x + 3, y - 2, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        private void drawMeet(Canvas c, float x, float y, int color) {
-            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
-            c.drawRoundRect(new RectF(x - 9, y - 7, x + 4, y + 7), 3, 3, p);
-            c.drawLine(x + 4, y - 4, x + 10, y - 7, p); c.drawLine(x + 10, y - 7, x + 10, y + 7, p); c.drawLine(x + 10, y + 7, x + 4, y + 4, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        private void drawChat(Canvas c, float x, float y, int color) {
-            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2);
-            c.drawRoundRect(new RectF(x - 10, y - 8, x + 10, y + 6), 4, 4, p);
-            c.drawLine(x - 5, y + 6, x - 8, y + 11, p); c.drawLine(x - 8, y + 11, x - 1, y + 6, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        private void drawMail(Canvas c, Mail mail, float y, boolean active) {
-            if (active) rounded(c, 4, y + 2, 386, y + 70, 4, 0xfff1f3f4);
-            rounded(c, 16, y + 16, 48, y + 48, 16, mail.color);
-            setup(15, Color.WHITE, true); c.drawText(mail.initial, 27, y + 37, p);
-            float left = 62, right = 378, starLeft = 346;
-            c.save();
-            c.clipRect(left, y + 8, starLeft - 4, y + 68);
-            setup(14, mail.unread ? text : 0xff5f6368, mail.unread);
-            c.drawText(ellipsize(mail.sender, starLeft - left), left, y + 28, p);
-            setup(12, mail.unread ? text : 0xff5f6368, mail.unread);
-            c.drawText(ellipsize(mail.subject, starLeft - left), left, y + 47, p);
-            setup(11, 0xff5f6368, false);
-            c.drawText(ellipsize(mail.preview, starLeft - left), left, y + 63, p);
-            c.restore();
-            setup(11, 0xff5f6368, mail.unread);
-            p.setTextAlign(Paint.Align.RIGHT);
-            c.drawText(mail.time, right - 2, y + 28, p);
-            p.setTextAlign(Paint.Align.LEFT);
-            drawStar(c, 359, y + 53, 0xff5f6368);
-            line(c, 62, y + 71, 378, y + 71, 0xfff1f3f4);
-        }
-
-        private String ellipsize(String value, float maxWidth) {
-            if (p.measureText(value) <= maxWidth) return value;
-            String suffix = "…";
-            int end = value.length();
-            while (end > 0 && p.measureText(value.substring(0, end) + suffix) > maxWidth) end--;
-            return end == 0 ? suffix : value.substring(0, end) + suffix;
-        }
-
-        private void drawStar(Canvas c, float x, float y, int color) {
-            Path star = new Path();
-            for (int i = 0; i < 10; i++) {
-                double angle = -Math.PI / 2 + i * Math.PI / 5;
-                float radius = i % 2 == 0 ? 8 : 3.5f;
-                float px = x + (float) Math.cos(angle) * radius;
-                float py = y + (float) Math.sin(angle) * radius;
-                if (i == 0) star.moveTo(px, py); else star.lineTo(px, py);
-            }
-            star.close();
-            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.4f);
-            c.drawPath(star, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        private void drawDrawer(Canvas c, float viewportHeight) {
-            p.setColor(0x55000000); c.drawRect(280, 0, 390, 780, p);
-            rounded(c, 0, 0, 310, Math.min(780, viewportHeight), 0, Color.WHITE);
-            setup(22, 0xff5f6368, false); c.drawText("Gmail", 25, 48, p);
-            setup(13, 0xff5f6368, false); c.drawText("A  alex.johnson@gmail.com", 25, 81, p);
-            line(c, 0, 98, 310, 98, 0xffdadce0);
-            drawerRow(c, "▣", "All inboxes", 118, false);
-            drawerRow(c, "✉", "Inbox", 164, true);
-            drawerRow(c, "★", "Starred", 210, false);
-            drawerRow(c, "◷", "Snoozed", 256, false);
-            drawerRow(c, "➤", "Sent", 302, false);
-            drawerRow(c, "▱", "Drafts", 348, false);
-            line(c, 0, 375, 310, 375, 0xffdadce0);
-            setup(13, 0xff5f6368, true); c.drawText("Labels", 25, 407, p);
-            drawerRow(c, "●", "Work", 441, false);
-            drawerRow(c, "●", "Personal", 487, false);
-            drawerRow(c, "⚙", "Settings", 548, false);
-            drawerRow(c, "?", "Help & feedback", 594, false);
-        }
-
-        private void drawerRow(Canvas c, String symbol, String label, float y, boolean selectedRow) {
-            if (selectedRow) rounded(c, 8, y - 24, 300, y + 11, 18, 0xffd3e3fd);
-            icon(c, symbol, 26, y, 18, selectedRow ? blue : 0xff5f6368);
-            setup(14, selectedRow ? text : 0xff3c4043, selectedRow); c.drawText(label, 62, y, p);
-        }
-
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            float s = Math.min(getWidth() / 390f, getHeight() / 780f), x = e.getX() / s, y = e.getY() / s;
-            if (e.getAction() == MotionEvent.ACTION_DOWN) { downX = x; downY = y; return true; }
-            if (e.getAction() == MotionEvent.ACTION_UP) {
-                if (drawerOpen) { if (x > 310) drawerOpen = false; else if (y > 100 && y < 370) drawerOpen = false; invalidate(); return true; }
-                if (downY < 70 && downX < 55) drawerOpen = true;
-                else if (downY < 70 && downX > 280) searchOpen = true;
-                else if (downY > (getHeight() / (getWidth() / 390f)) - 140) Toast.makeText(MainActivity.this, "Compose a new message", Toast.LENGTH_SHORT).show();
-                else if (downY > 139 && downY < 643) {
-                    selected = Math.max(0, Math.min(mails.size() - 1, (int)((downY - 139) / 72)));
-                    mails.get(selected).unread = false;
-                }
-                invalidate(); return true;
-            }
-            return true;
-        }
-
-        private class Mail {
-            String sender, subject, preview, time, initial; int color; boolean unread;
-            Mail(String a, String b, String c, String d, String e, int f, boolean g) {
-                sender=a; subject=b; preview=c; time=d; initial=e; color=f; unread=g;
-            }
-        }
+        Removed(int index, Mail mail) { this.index = index; this.mail = mail; }
     }
 }
