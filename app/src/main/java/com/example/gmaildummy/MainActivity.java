@@ -3,16 +3,18 @@ package com.example.gmaildummy;
 import android.animation.LayoutTransition;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,7 +48,9 @@ public class MainActivity extends Activity {
     private static final Typeface MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     private static final Typeface BOLD = Typeface.create("sans-serif", Typeface.BOLD);
 
-    private final List<Mail> mails = new ArrayList<>();
+    private static final int REQUEST_READ = 1, REQUEST_COMPOSE = 2;
+
+    private final List<Mail> mails = MailStore.mails;
     private final List<Mail> shown = new ArrayList<>();
     private final Set<Mail> selected = new LinkedHashSet<>();
     private final List<Removed> lastRemoved = new ArrayList<>();
@@ -86,7 +90,6 @@ public class MainActivity extends Activity {
         drawerList = findViewById(R.id.drawer_list);
 
         setupEdgeToEdge();
-        seedMails();
         setupList();
         setupTopBar();
         setupBottomNav();
@@ -96,14 +99,9 @@ public class MainActivity extends Activity {
         refresh();
     }
 
-    // Draw behind the status and navigation bars (enforced from Android 15) and pad the UI by the insets.
+    // Draw behind the system bars (enforced from Android 15) and pad the UI by the insets.
     private void setupEdgeToEdge() {
-        int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if (Build.VERSION.SDK_INT >= 27) {
-            flags |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        }
-        getWindow().getDecorView().setSystemUiVisibility(flags);
+        SystemBars.edgeToEdge(this);
         View content = findViewById(R.id.content);
         findViewById(R.id.root).setOnApplyWindowInsetsListener((v, insets) -> {
             int top = insets.getSystemWindowInsetTop();
@@ -114,24 +112,6 @@ public class MainActivity extends Activity {
             updateListPadding();
             return insets;
         });
-    }
-
-    private void seedMails() {
-        mails.add(new Mail("Primary", "Priya Sharma", "Weekend plans", "Are we still on for brunch this Saturday? I found a lovely new place downtown.", "10:42 AM", 0xFF8E24AA, true, false, null));
-        mails.add(new Mail("Primary", "Design Team", "Q4 product launch deck ✨", "Hi all, the latest mockups are ready for review. Please leave your comments by Friday.", "9:18 AM", 0xFF00897B, true, false, "Q4_Launch_Deck.pdf"));
-        mails.add(new Mail("Primary", "Alex Johnson", "Re: Project timeline", "Thanks for the update. I’ll share the revised timeline this afternoon.", "8:05 AM", 0xFF039BE5, true, true, null));
-        mails.add(new Mail("Primary", "Rahul Verma", "Invoice for September", "Please find attached the invoice for September. Let me know if you have any questions.", "Sep 22", 0xFFF4511E, false, false, "Invoice_Sep_2026.pdf"));
-        mails.add(new Mail("Primary", "Neha Kapoor", "Birthday party pics 🎉", "Here are all the photos from Saturday! Thanks again for coming.", "Sep 22", 0xFFD81B60, false, true, null));
-        mails.add(new Mail("Primary", "Google", "Security alert", "A new sign-in on Pixel 9 was detected. If this was you, you don’t need to do anything.", "Sep 21", 0xFF1A73E8, false, false, null));
-        mails.add(new Mail("Primary", "Mom", "Dinner on Sunday?", "Your dad is making his famous biryani. Let me know if you can come!", "Sep 20", 0xFF43A047, false, false, null));
-        mails.add(new Mail("Primary", "Karan Mehta", "Offsite agenda", "Sharing the draft agenda for next week’s team offsite. Feel free to add topics.", "Sep 19", 0xFF3949AB, false, false, null));
-        mails.add(new Mail("Primary", "Sarah Lee", "Coffee next week?", "It’s been a while! Would love to catch up if you’re free Tuesday or Wednesday.", "Sep 18", 0xFF6D4C41, false, false, null));
-        mails.add(new Mail("Promotions", "Spotify", "Your Daily Mix is ready", "A fresh playlist picked just for you is waiting.", "7:30 AM", 0xFF1DB954, true, false, null));
-        mails.add(new Mail("Promotions", "Medium Daily Digest", "Stories you might enjoy", "The latest ideas and perspectives from writers you follow.", "6:10 AM", 0xFF212121, true, false, null));
-        mails.add(new Mail("Social", "LinkedIn", "You appeared in 12 searches this week", "See who’s looking at your profile and grow your network.", "9:02 AM", 0xFF0A66C2, true, false, null));
-        mails.add(new Mail("Social", "Meetup", "New event: Android Devs Bangalore", "Join us for talks on Compose, performance and more.", "Sep 21", 0xFFE53935, false, false, null));
-        mails.add(new Mail("Updates", "GitHub", "[gmail-dummy-app] Build succeeded", "Build APK workflow completed successfully on main.", "Sep 22", 0xFF24292F, false, false, null));
-        mails.add(new Mail("Updates", "Amazon.in", "Your order has shipped", "Your package is on its way and will arrive by Thursday.", "Sep 20", 0xFFFF9900, false, false, null));
     }
 
     private void setupList() {
@@ -196,7 +176,7 @@ public class MainActivity extends Activity {
     }
 
     private void setupFab() {
-        fab.setOnClickListener(v -> toast("Compose"));
+        fab.setOnClickListener(v -> startActivityForResult(new Intent(this, ComposeActivity.class), REQUEST_COMPOSE));
         LayoutTransition fabTransition = new LayoutTransition();
         fabTransition.enableTransitionType(LayoutTransition.CHANGING);
         ((ViewGroup) fab).setLayoutTransition(fabTransition);
@@ -239,11 +219,19 @@ public class MainActivity extends Activity {
                     || (m.sender + " " + m.subject + " " + m.snippet).toLowerCase(Locale.ROOT).contains(query);
         }
         switch (folder) {
-            case "Primary": case "Promotions": case "Social": case "Updates": return m.category.equals(folder);
-            case "All inboxes": case "All mail": return true;
+            case "Primary": case "Promotions": case "Social": case "Updates": case "Sent": case "Drafts":
+                return m.category.equals(folder);
+            case "All inboxes": return !m.isOutgoing();
+            case "All mail": return !m.category.equals("Drafts");
             case "Starred": return m.starred;
             default: return false;
         }
+    }
+
+    private int countIn(String category) {
+        int count = 0;
+        for (Mail m : mails) if (m.category.equals(category)) count++;
+        return count;
     }
 
     private int unreadIn(String category) {
@@ -281,8 +269,32 @@ public class MainActivity extends Activity {
 
     private void onMailClick(Mail m) {
         if (!selected.isEmpty()) { toggleSelected(m); return; }
-        m.unread = false;
+        if (m.category.equals("Drafts")) {
+            startActivityForResult(new Intent(this, ComposeActivity.class)
+                    .putExtra(ComposeActivity.EXTRA_MODE, ComposeActivity.MODE_DRAFT)
+                    .putExtra(ReadActivity.EXTRA_ID, m.id), REQUEST_COMPOSE);
+        } else {
+            startActivityForResult(new Intent(this, ReadActivity.class).putExtra(ReadActivity.EXTRA_ID, m.id), REQUEST_READ);
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
         refresh();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) return;
+        String action = data.getStringExtra(ReadActivity.EXTRA_ACTION);
+        Mail m = MailStore.find(data.getLongExtra(ReadActivity.EXTRA_ID, -1));
+        if (action != null && m != null) {
+            selected.clear();
+            selected.add(m);
+            removeSelected(action.equals("archive") ? "archived" : "moved to Bin");
+        } else if (data.hasExtra(ReadActivity.EXTRA_MESSAGE)) {
+            showSnackbar(data.getStringExtra(ReadActivity.EXTRA_MESSAGE), false);
+        }
     }
 
     private void toggleSelected(Mail m) {
@@ -306,7 +318,7 @@ public class MainActivity extends Activity {
         mails.removeAll(selected);
         selected.clear();
         refresh();
-        showSnackbar(lastRemoved.size() + " " + verb);
+        showSnackbar(lastRemoved.size() + " " + verb, true);
     }
 
     private void undoRemove() {
@@ -316,8 +328,9 @@ public class MainActivity extends Activity {
         refresh();
     }
 
-    private void showSnackbar(String text) {
+    private void showSnackbar(String text, boolean undoable) {
         snackbarText.setText(text);
+        findViewById(R.id.snackbar_action).setVisibility(undoable ? View.VISIBLE : View.GONE);
         snackbar.setVisibility(View.VISIBLE);
         snackbar.removeCallbacks(hideSnackbar);
         snackbar.postDelayed(hideSnackbar, 4000);
@@ -414,7 +427,7 @@ public class MainActivity extends Activity {
         drawerItem(R.drawable.ic_label_important, "Important", "", 0);
         drawerItem(R.drawable.ic_send, "Sent", "", 0);
         drawerItem(R.drawable.ic_schedule, "Scheduled", "", 0);
-        drawerItem(R.drawable.ic_draft, "Drafts", "", 0);
+        drawerItem(R.drawable.ic_draft, "Drafts", count(countIn("Drafts")), 0);
         drawerItem(R.drawable.ic_mail_outline, "All mail", "", 0);
         drawerItem(R.drawable.ic_report, "Spam", "", 0);
         drawerItem(R.drawable.ic_delete, "Bin", "", 0);
@@ -542,6 +555,13 @@ public class MainActivity extends Activity {
         return d;
     }
 
+    // Gmail marks drafts in the list with a red "Draft" in place of the sender.
+    private static CharSequence draftLabel(Mail m) {
+        SpannableString label = new SpannableString(m.to.equals("me") ? "Draft" : "Draft, to " + m.to);
+        label.setSpan(new ForegroundColorSpan(0xFFD93025), 0, 5, 0);
+        return label;
+    }
+
     private static GradientDrawable oval(int color) {
         GradientDrawable d = new GradientDrawable();
         d.setShape(GradientDrawable.OVAL);
@@ -567,10 +587,14 @@ public class MainActivity extends Activity {
             boolean isSelected = selected.contains(m);
             row.setBackgroundColor(isSelected ? SELECTED : Color.TRANSPARENT);
             h.avatar.setBackground(oval(isSelected ? CHECK : m.color));
-            h.avatar.setText(isSelected ? "" : m.initial());
+            h.avatar.setText(isSelected ? "" : m.isOutgoing() ? "A" : m.initial());
             h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
 
-            h.sender.setText(m.sender);
+            if (m.category.equals("Drafts")) {
+                h.sender.setText(draftLabel(m));
+            } else {
+                h.sender.setText(m.category.equals("Sent") ? "To: " + m.to : m.sender);
+            }
             h.subject.setText(m.subject);
             h.time.setText(m.time);
             h.snippet.setText(m.snippet);
@@ -611,21 +635,6 @@ public class MainActivity extends Activity {
             attachment = row.findViewById(R.id.attachment);
             attachmentName = row.findViewById(R.id.attachment_name);
         }
-    }
-
-    private static class Mail {
-        final String category, sender, subject, snippet, time, attachment;
-        final int color;
-        boolean unread, starred;
-
-        Mail(String category, String sender, String subject, String snippet, String time,
-             int color, boolean unread, boolean starred, String attachment) {
-            this.category = category; this.sender = sender; this.subject = subject; this.snippet = snippet;
-            this.time = time; this.color = color; this.unread = unread; this.starred = starred;
-            this.attachment = attachment;
-        }
-
-        String initial() { return sender.substring(0, 1).toUpperCase(Locale.ROOT); }
     }
 
     private static class Removed {

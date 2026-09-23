@@ -15,4 +15,5 @@
     <color name="snackbar">#313033</color>
     <color name="snackbar_action">#A8C7FA</color>
     <color name="scrim">#52000000</color>
+    <color name="divider">#E1E3E1</color>
 </resources>

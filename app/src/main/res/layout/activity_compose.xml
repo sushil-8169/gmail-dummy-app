@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/surface"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp">
+
+        <ImageView
+            android:id="@+id/btn_back"
+            style="@style/ToolbarIcon"
+            android:contentDescription="Back"
+            android:src="@drawable/ic_arrow_back" />
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif"
+            android:singleLine="true"
+            android:text="Compose"
+            android:textColor="@color/on_surface"
+            android:textSize="22sp" />
+
+        <ImageView
+            android:id="@+id/btn_attach"
+            style="@style/ToolbarIcon"
+            android:contentDescription="Attach file"
+            android:src="@drawable/ic_attach_file" />
+
+        <ImageView
+            android:id="@+id/btn_send"
+            style="@style/ToolbarIcon"
+            android:contentDescription="Send"
+            android:src="@drawable/ic_send_filled"
+            android:tint="@color/primary" />
+
+        <ImageView
+            android:id="@+id/btn_more"
+            style="@style/ToolbarIcon"
+            android:contentDescription="More options"
+            android:src="@drawable/ic_more_vert" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <TextView
+                    style="@style/ComposeLabel"
+                    android:text="From" />
+
+                <TextView
+                    android:id="@+id/from"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
+                    android:singleLine="true"
+                    android:textColor="@color/on_surface"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <View style="@style/ComposeDivider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="4dp">
+
+                <TextView
+                    style="@style/ComposeLabel"
+                    android:text="To" />
+
+                <EditText
+                    android:id="@+id/to"
+                    style="@style/ComposeField" />
+
+                <ImageView
+                    android:id="@+id/btn_expand"
+                    style="@style/ToolbarIcon"
+                    android:contentDescription="Show Cc and Bcc"
+                    android:src="@drawable/ic_expand_more" />
+            </LinearLayout>
+
+            <View style="@style/ComposeDivider" />
+
+            <LinearLayout
+                android:id="@+id/cc_bcc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
+
+                    <TextView
+                        style="@style/ComposeLabel"
+                        android:text="Cc" />
+
+                    <EditText
+                        android:id="@+id/cc"
+                        style="@style/ComposeField" />
+                </LinearLayout>
+
+                <View style="@style/ComposeDivider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
+
+                    <TextView
+                        style="@style/ComposeLabel"
+                        android:text="Bcc" />
+
+                    <EditText
+                        android:id="@+id/bcc"
+                        style="@style/ComposeField" />
+                </LinearLayout>
+
+                <View style="@style/ComposeDivider" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/subject"
+                style="@style/ComposeField"
+                android:layout_width="match_parent"
+                android:layout_weight="0"
+                android:hint="Subject"
+                android:inputType="textEmailSubject|textCapSentences"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <View style="@style/ComposeDivider" />
+
+            <LinearLayout
+                android:id="@+id/attachment"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_chip"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_pdf"
+                    android:tint="#D93025" />
+
+                <TextView
+                    android:id="@+id/attachment_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:ellipsize="middle"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxWidth="200dp"
+                    android:singleLine="true"
+                    android:textColor="@color/on_surface_variant"
+                    android:textSize="14sp" />
+
+                <ImageView
+                    android:id="@+id/btn_remove_attachment"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Remove attachment"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_close"
+                    android:tint="@color/on_surface_variant" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:fontFamily="sans-serif"
+                android:gravity="top|start"
+                android:hint="Compose email"
+                android:inputType="textMultiLine|textCapSentences"
+                android:lineSpacingMultiplier="1.2"
+                android:minHeight="240dp"
+                android:paddingStart="16dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="16dp"
+                android:textColor="@color/on_surface"
+                android:textColorHint="@color/on_surface_variant"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
