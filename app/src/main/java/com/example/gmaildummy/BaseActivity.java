@@ -2,6 +2,7 @@ package com.example.gmaildummy;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -40,11 +41,23 @@ abstract class BaseActivity extends Activity {
         });
     }
 
-    /** Gmail's icon-only bottom bar: Mail (selected, with unread badge) and Meet. Returns the badge. */
+    /** Gmail's icon-only bottom bar with Mail selected. Returns the Mail item's unread badge. */
     TextView buildBottomNav(LinearLayout nav, Runnable onMail) {
-        TextView badge = addNavItem(nav, R.drawable.ic_mail, "Mail", true, onMail);
-        addNavItem(nav, R.drawable.ic_videocam, "Meet", false, () -> toast("Meet"));
+        return buildBottomNav(nav, false, onMail);
+    }
+
+    /** Gmail's icon-only bottom bar: Mail (with unread badge) and Meet. Returns the badge. */
+    TextView buildBottomNav(LinearLayout nav, boolean meetSelected, Runnable onMail) {
+        TextView badge = addNavItem(nav, meetSelected ? R.drawable.ic_mail_outline : R.drawable.ic_mail, "Mail", !meetSelected, onMail);
+        addNavItem(nav, meetSelected ? R.drawable.ic_videocam_filled : R.drawable.ic_videocam, "Meet", meetSelected,
+                meetSelected ? () -> { } : this::openMeet);
         return badge;
+    }
+
+    /** Switches to the Meet tab without a transition, as a tab change should feel. */
+    void openMeet() {
+        startActivity(new Intent(this, MeetActivity.class));
+        overridePendingTransition(0, 0);
     }
 
     private TextView addNavItem(LinearLayout nav, int icon, String label, boolean active, Runnable onClick) {

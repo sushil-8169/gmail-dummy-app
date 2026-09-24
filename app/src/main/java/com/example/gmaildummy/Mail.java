@@ -28,7 +28,15 @@ final class Mail {
     Mail verified() { this.verified = true; return this; }
     Mail thread(int count) { this.threadCount = count; return this; }
 
-    boolean isOutgoing() { return category.equals("Sent") || category.equals("Drafts"); }
+    boolean isOutgoing() { return category.equals("Sent") || category.equals("Drafts") || category.equals("Scheduled"); }
+
+    /** The same message filed under another folder, e.g. a sent mail back in Drafts after Undo. */
+    Mail copyAs(String folder) {
+        Mail copy = new Mail(folder, sender, subject, snippet, time, color, unread, starred, attachment);
+        copy.email = email; copy.to = to; copy.body = body;
+        copy.important = important; copy.verified = verified; copy.threadCount = threadCount;
+        return copy;
+    }
 
     String initial() { return sender.substring(0, 1).toUpperCase(Locale.ROOT); }
 }

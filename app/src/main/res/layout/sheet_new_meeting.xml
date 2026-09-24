@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom sheet shown by Meet's New meeting button. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_sheet"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <View style="@style/SheetHandle" />
+
+    <LinearLayout
+        android:id="@+id/opt_link"
+        style="@style/SheetRow">
+
+        <ImageView
+            style="@style/SheetRowIcon"
+            android:src="@drawable/ic_link" />
+
+        <TextView
+            style="@style/SheetRowText"
+            android:text="Get a meeting link to share" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/opt_instant"
+        style="@style/SheetRow">
+
+        <ImageView
+            style="@style/SheetRowIcon"
+            android:src="@drawable/ic_videocam" />
+
+        <TextView
+            style="@style/SheetRowText"
+            android:text="Start an instant meeting" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/opt_calendar"
+        style="@style/SheetRow">
+
+        <ImageView
+            style="@style/SheetRowIcon"
+            android:src="@drawable/ic_calendar" />
+
+        <TextView
+            style="@style/SheetRowText"
+            android:text="Schedule in Google Calendar" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/opt_close"
+        style="@style/SheetRow">
+
+        <ImageView
+            style="@style/SheetRowIcon"
+            android:src="@drawable/ic_close" />
+
+        <TextView
+            style="@style/SheetRowText"
+            android:text="Close" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,15 @@
+<!-- Launcher icon before Android 8: the M on a white circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#FFFFFF" android:pathData="M24,2a22,22 0 1,1 0,44a22,22 0 1,1 0,-44z" />
+    <group android:scaleX="0.318" android:scaleY="0.318" android:translateX="-6.54" android:translateY="0.14">
+        <path android:fillColor="#4285F4" android:pathData="M58,108h14V74L52,59v43c0,3.32 2.69,6 6,6z" />
+        <path android:fillColor="#34A853" android:pathData="M120,108h14c3.32,0 6,-2.69 6,-6V59l-20,15z" />
+        <path android:fillColor="#FBBC04" android:pathData="M120,48v26l20,-15v-8c0,-7.42 -8.47,-11.65 -14.4,-7.2z" />
+        <path android:fillColor="#EA4335" android:pathData="M72,74V48l24,18 24,-18v26L96,92z" />
+        <path android:fillColor="#C5221F" android:pathData="M52,51v8l20,15V48l-5.6,-4.2c-5.94,-4.45 -14.4,-0.22 -14.4,7.2z" />
+    </group>
+</vector>

@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.Set;
 
 public class MainActivity extends BaseActivity {
+    static final String EXTRA_OPEN_DRAWER = "open_drawer";
     private static final int REQUEST_READ = 1, REQUEST_COMPOSE = 2;
     private static final int DRAWER_WIDTH_DP = 304;
 
@@ -45,6 +46,7 @@ public class MainActivity extends BaseActivity {
     private final List<Removed> lastRemoved = new ArrayList<>();
     private final MailAdapter adapter = new MailAdapter();
     private final Runnable hideSnackbar = this::hideSnackbar;
+    private Runnable snackbarUndo;
 
     private String folder = "Primary";
     private String query = "";
@@ -84,7 +86,11 @@ public class MainActivity extends BaseActivity {
         mailBadge = buildBottomNav(bottomNav, () -> { if (!folder.equals("Primary")) selectFolder("Primary"); });
         setupFab();
         scrim.setOnClickListener(v -> closeDrawer());
-        findViewById(R.id.snackbar_action).setOnClickListener(v -> undoRemove());
+        findViewById(R.id.snackbar_action).setOnClickListener(v -> {
+            Runnable undo = snackbarUndo;
+            hideSnackbar();
+            if (undo != null) undo.run();
+        });
         refresh();
     }
 
@@ -192,7 +198,7 @@ public class MainActivity extends BaseActivity {
                     || (m.sender + " " + m.subject + " " + m.snippet).toLowerCase(Locale.ROOT).contains(query);
         }
         switch (folder) {
-            case "Primary": case "Promotions": case "Social": case "Updates": case "Sent": case "Drafts":
+            case "Primary": case "Promotions": case "Social": case "Updates": case "Sent": case "Drafts": case "Scheduled":
                 return m.category.equals(folder);
             case "All inboxes": return !m.isOutgoing();
             case "All mail": return !m.category.equals("Drafts");
@@ -255,6 +261,12 @@ public class MainActivity extends BaseActivity {
         refresh();
     }
 
+    // Meet's menu button comes back here to open the drawer.
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent.getBooleanExtra(EXTRA_OPEN_DRAWER, false)) openDrawer();
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null) return;
@@ -264,9 +276,24 @@ public class MainActivity extends BaseActivity {
             selected.clear();
             selected.add(m);
             removeSelected(action.equals("archive") ? "archived" : "moved to Bin");
+        } else if (data.hasExtra(ComposeActivity.EXTRA_SENT_ID)) {
+            Mail sent = MailStore.find(data.getLongExtra(ComposeActivity.EXTRA_SENT_ID, -1));
+            showSnackbar("Sent", sent == null ? null : () -> undoSend(sent));
         } else if (data.hasExtra(ReadActivity.EXTRA_MESSAGE)) {
-            showSnackbar(data.getStringExtra(ReadActivity.EXTRA_MESSAGE), false);
+            showSnackbar(data.getStringExtra(ReadActivity.EXTRA_MESSAGE), null);
         }
+    }
+
+    // Gmail's Undo after sending: the message goes back to Drafts and reopens in compose.
+    private void undoSend(Mail sent) {
+        int index = mails.indexOf(sent);
+        if (index < 0) return;
+        Mail draft = sent.copyAs("Drafts");
+        mails.set(index, draft);
+        refresh();
+        startActivityForResult(new Intent(this, ComposeActivity.class)
+                .putExtra(ComposeActivity.EXTRA_MODE, ComposeActivity.MODE_DRAFT)
+                .putExtra(ReadActivity.EXTRA_ID, draft.id), REQUEST_COMPOSE);
     }
 
     private void toggleSelected(Mail m) {
@@ -290,7 +317,7 @@ public class MainActivity extends BaseActivity {
         mails.removeAll(selected);
         selected.clear();
         refresh();
-        showSnackbar(lastRemoved.size() + " " + verb, true);
+        showSnackbar(lastRemoved.size() + " " + verb, this::undoRemove);
     }
 
     private void undoRemove() {
@@ -300,9 +327,11 @@ public class MainActivity extends BaseActivity {
         refresh();
     }
 
-    private void showSnackbar(String text, boolean undoable) {
+    /** Shows {@code text}, with an Undo action when {@code undo} is given. */
+    private void showSnackbar(String text, Runnable undo) {
+        snackbarUndo = undo;
         snackbarText.setText(text);
-        findViewById(R.id.snackbar_action).setVisibility(undoable ? View.VISIBLE : View.GONE);
+        findViewById(R.id.snackbar_action).setVisibility(undo != null ? View.VISIBLE : View.GONE);
         snackbar.setVisibility(View.VISIBLE);
         snackbar.removeCallbacks(hideSnackbar);
         snackbar.postDelayed(hideSnackbar, 4000);
@@ -310,6 +339,7 @@ public class MainActivity extends BaseActivity {
     }
 
     private void hideSnackbar() {
+        snackbarUndo = null;
         snackbar.removeCallbacks(hideSnackbar);
         snackbar.setVisibility(View.GONE);
         fab.animate().translationY(0).setDuration(150).start();
@@ -379,13 +409,24 @@ public class MainActivity extends BaseActivity {
 
     private void buildDrawer() {
         drawerList.removeAllViews();
-        TextView title = new TextView(this);
-        title.setText("Gmail");
-        title.setTextColor(color(R.color.logo_red));
-        title.setTextSize(22);
-        title.setTypeface(REGULAR);
+        // The Gmail logo: the four-colour M followed by the grey wordmark.
+        LinearLayout title = new LinearLayout(this);
+        title.setOrientation(LinearLayout.HORIZONTAL);
         title.setGravity(Gravity.CENTER_VERTICAL);
         title.setPadding(dp(28), 0, dp(16), 0);
+        title.setContentDescription("Gmail");
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.ic_gmail_logo);
+        title.addView(logo, new LinearLayout.LayoutParams(dp(32), dp(24)));
+        TextView wordmark = new TextView(this);
+        wordmark.setText("Gmail");
+        wordmark.setTextColor(color(R.color.on_surface_variant));
+        wordmark.setTextSize(22);
+        wordmark.setTypeface(REGULAR);
+        LinearLayout.LayoutParams wordmarkParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wordmarkParams.setMarginStart(dp(12));
+        title.addView(wordmark, wordmarkParams);
         drawerList.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64)));
 
         int primaryUnread = unreadIn("Primary");
@@ -400,7 +441,7 @@ public class MainActivity extends BaseActivity {
         drawerItem(R.drawable.ic_schedule, "Snoozed", "", false);
         drawerItem(R.drawable.ic_label_important, "Important", "", false);
         drawerItem(R.drawable.ic_send, "Sent", "", false);
-        drawerItem(R.drawable.ic_schedule, "Scheduled", "", false);
+        drawerItem(R.drawable.ic_schedule, "Scheduled", count(countIn("Scheduled")), false);
         drawerItem(R.drawable.ic_draft, "Drafts", count(countIn("Drafts")), false);
         drawerItem(R.drawable.ic_mail_outline, "All mail", "", false);
         drawerItem(R.drawable.ic_report, "Spam", "", false);
@@ -557,7 +598,7 @@ public class MainActivity extends BaseActivity {
         h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
 
         if (m.category.equals("Drafts")) h.sender.setText(draftLabel(m));
-        else h.sender.setText(m.category.equals("Sent") ? "To: " + m.to : m.sender);
+        else h.sender.setText(m.category.equals("Sent") || m.category.equals("Scheduled") ? "To: " + m.to : m.sender);
         h.threadCount.setText(m.threadCount > 1 ? String.valueOf(m.threadCount) : "");
         h.important.setVisibility(m.important ? View.VISIBLE : View.GONE);
         h.subject.setText(m.subject);

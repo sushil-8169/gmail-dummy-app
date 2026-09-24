@@ -2,6 +2,8 @@
     <application
         android:theme="@style/AppTheme"
         android:label="Gmail"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true">
         <activity
@@ -22,6 +24,19 @@
             android:name=".ComposeActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize|stateVisible"
+            android:exported="false" />
+        <activity
+            android:name=".MeetActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
+            android:name=".JoinMeetingActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateVisible"
+            android:exported="false" />
+        <activity
+            android:name=".MeetCallActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".SettingsActivity"

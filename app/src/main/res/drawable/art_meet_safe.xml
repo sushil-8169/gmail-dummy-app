@@ -1,0 +1,19 @@
+<!-- Meet tab illustration: a shield for "Your meeting is safe". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="192dp"
+    android:viewportWidth="200"
+    android:viewportHeight="160">
+    <path android:fillColor="@color/meet_art_bg" android:pathData="M28,82a72,72 0 1,1 144,0a72,72 0 1,1 -144,0z" />
+    <path android:fillColor="#FBBC04" android:pathData="M38,112a10,10 0 1,1 20,0a10,10 0 1,1 -20,0z" />
+    <path android:fillColor="#EA4335" android:pathData="M146,48a8,8 0 1,1 16,0a8,8 0 1,1 -16,0z" />
+    <path android:fillColor="#34A853" android:pathData="M150,118a6,6 0 1,1 12,0a6,6 0 1,1 -12,0z" />
+    <path android:fillColor="#1A73E8" android:pathData="M100,32L140,47V80C140,105 122,125 100,133C78,125 60,105 60,80V47Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M83,82L96,95L119,70"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="9" />
+</vector>

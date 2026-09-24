@@ -43,7 +43,7 @@
                     android:focusableInTouchMode="false"
                     android:fontFamily="sans-serif"
                     android:gravity="center"
-                    android:hint="Search in emails"
+                    android:hint="Search in mail"
                     android:imeOptions="actionSearch"
                     android:inputType="text"
                     android:paddingStart="20dp"

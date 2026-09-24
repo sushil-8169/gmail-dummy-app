@@ -47,4 +47,7 @@
     <color name="cat_social">#A8C7FA</color>
     <color name="cat_social_bg">#A8C7FA</color>
     <color name="cat_social_text">#062E6F</color>
+    <color name="on_primary">#062E6F</color>
+    <color name="sheet">#1F2022</color>
+    <color name="meet_art_bg">#28303F</color>
 </resources>

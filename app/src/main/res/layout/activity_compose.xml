@@ -95,22 +95,22 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="16dp"
                 android:paddingEnd="4dp">
 
                 <TextView
-                    style="@style/ComposeLabel"
+                    style="@style/RecipientLabel"
                     android:text="To" />
 
-                <EditText
+                <com.example.gmaildummy.RecipientField
                     android:id="@+id/to"
-                    style="@style/ComposeField" />
+                    style="@style/RecipientField" />
 
                 <ImageView
                     android:id="@+id/btn_expand"
                     style="@style/ToolbarIcon"
+                    android:layout_marginTop="2dp"
                     android:contentDescription="Show Cc and Bcc"
                     android:src="@drawable/ic_expand_more" />
             </LinearLayout>
@@ -127,18 +127,17 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp">
 
                     <TextView
-                        style="@style/ComposeLabel"
+                        style="@style/RecipientLabel"
                         android:text="Cc" />
 
-                    <EditText
+                    <com.example.gmaildummy.RecipientField
                         android:id="@+id/cc"
-                        style="@style/ComposeField" />
+                        style="@style/RecipientField" />
                 </LinearLayout>
 
                 <View style="@style/ComposeDivider" />
@@ -146,18 +145,17 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp">
 
                     <TextView
-                        style="@style/ComposeLabel"
+                        style="@style/RecipientLabel"
                         android:text="Bcc" />
 
-                    <EditText
+                    <com.example.gmaildummy.RecipientField
                         android:id="@+id/bcc"
-                        style="@style/ComposeField" />
+                        style="@style/RecipientField" />
                 </LinearLayout>
 
                 <View style="@style/ComposeDivider" />
@@ -175,6 +173,25 @@
 
             <View style="@style/ComposeDivider" />
 
+            <TextView
+                android:id="@+id/confidential"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_chip"
+                android:drawableStart="@drawable/ic_lock"
+                android:drawablePadding="8dp"
+                android:drawableTint="@color/on_surface_variant"
+                android:fontFamily="sans-serif"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="14dp"
+                android:text="Confidential mode · content expires in 1 week"
+                android:textColor="@color/on_surface_variant"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:id="@+id/attachment"
                 android:layout_width="wrap_content"
@@ -188,6 +205,7 @@
                 android:visibility="gone">
 
                 <ImageView
+                    android:id="@+id/attachment_icon"
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:importantForAccessibility="no"

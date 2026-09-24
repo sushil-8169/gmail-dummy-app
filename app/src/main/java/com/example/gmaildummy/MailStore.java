@@ -3,8 +3,10 @@ package com.example.gmaildummy;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** In-memory mailbox shared by the inbox, reading and compose screens. Newest mail first. */
 final class MailStore {
@@ -19,6 +21,29 @@ final class MailStore {
     static Mail find(long id) {
         for (Mail m : mails) if (m.id == id) return m;
         return null;
+    }
+
+    static int unreadIn(String category) {
+        int count = 0;
+        for (Mail m : mails) if (m.unread && m.category.equals(category)) count++;
+        return count;
+    }
+
+    /** Everyone who has written to you, newest first: the suggestions offered while addressing a mail. */
+    static List<Contact> contacts() {
+        List<Contact> contacts = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Mail m : mails) {
+            if (!m.isOutgoing() && seen.add(m.email.toLowerCase(Locale.ROOT))) contacts.add(new Contact(m.sender, m.email, m.color));
+        }
+        return contacts;
+    }
+
+    static final class Contact {
+        final String name, email;
+        final int color;
+
+        Contact(String name, String email, int color) { this.name = name; this.email = email; this.color = color; }
     }
 
     /** Current time in Gmail's style, e.g. "2:24 pm". */

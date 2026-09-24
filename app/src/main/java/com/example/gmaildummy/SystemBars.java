@@ -9,7 +9,11 @@ final class SystemBars {
     private SystemBars() { }
 
     static void edgeToEdge(Activity activity) {
-        boolean light = !ThemeMode.isDark(activity);
+        edgeToEdge(activity, !ThemeMode.isDark(activity));
+    }
+
+    /** {@code light} gives dark bar icons for a light background. */
+    static void edgeToEdge(Activity activity, boolean light) {
         int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
         if (light) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (Build.VERSION.SDK_INT >= 27) {
