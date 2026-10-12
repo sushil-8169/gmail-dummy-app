@@ -1,6 +1,7 @@
 package com.example.gmaildummy;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.RippleDrawable;
@@ -32,7 +33,7 @@ public class SettingsActivity extends BaseActivity {
 
         section("Account");
         LinearLayout account = group();
-        row(account, MailStore.ME, "Manage your Google Account", v -> toast(MailStore.ME));
+        row(account, MailStore.ME_NAME, MailStore.ME, v -> startActivity(new Intent(this, ProfileActivity.class)));
 
         section("About");
         LinearLayout about = group();

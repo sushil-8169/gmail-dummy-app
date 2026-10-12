@@ -49,7 +49,7 @@ public class ReadActivity extends BaseActivity {
 
         TextView avatar = findViewById(R.id.avatar);
         avatar.setBackground(oval(mail.color));
-        avatar.setText(mail.isOutgoing() ? "A" : mail.initial());
+        avatar.setText(mail.isOutgoing() ? MailStore.ME_INITIAL : mail.initial());
         ((TextView) findViewById(R.id.sender)).setText(mail.isOutgoing() ? "me" : mail.sender);
         ((TextView) findViewById(R.id.date)).setText(mail.time);
         findViewById(R.id.verified).setVisibility(mail.verified ? View.VISIBLE : View.GONE);

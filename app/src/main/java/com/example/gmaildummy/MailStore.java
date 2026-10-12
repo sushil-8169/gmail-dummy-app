@@ -10,7 +10,9 @@ import java.util.Set;
 
 /** In-memory mailbox shared by the inbox, reading and compose screens. Newest mail first. */
 final class MailStore {
-    static final String ME = "alex.johnson@gmail.com";
+    static final String ME = "sayali.patil@gmail.com";
+    static final String ME_NAME = "Sayali Patil";
+    static final String ME_INITIAL = "S";
     static final int ME_COLOR = 0xFF877164;
     static final List<Mail> mails = new ArrayList<>();
 
@@ -52,12 +54,15 @@ final class MailStore {
     }
 
     private static void seed() {
+        mails.add(new Mail("Primary", "Nullplex HR Team", "Shortlisted for II Technical Round – Quality Analyst", "Dear Candidate, Greetings from Nullplex Software Private Limited! We are pleased to inform you that you have successfully cleared the previous round…", "3:05 pm", 0xFF5E35B1, true, false, null)
+                .from("hr@nullplex.in").important()
+                .body("Dear Candidate,\n\nGreetings from Nullplex Software Private Limited!\n\nWe are pleased to inform you that you have successfully cleared the previous round of our recruitment process and have been shortlisted for the second Technical Round for the position of Quality Analyst.\n\nYour profile and performance in the previous round were found suitable for the role, and we would like to proceed with the next stage of the selection process.\n\nInterview Details:\n\n• Position: Quality Analyst\n• Round: II Technical Round\n• Date: 17 October 2026\n• Time: 1 PM\n• Mode: Face-to-Face\n\nKindly confirm your availability for the scheduled interview. Further details regarding the interview will be shared with you shortly.\n\nWe appreciate your interest in joining Nullplex Software Private Limited and wish you the very best for the next round.\n\nBest regards,\nHR Team\nNullplex Software Pvt. Ltd.\nhr@nullplex.in"));
         mails.add(new Mail("Updates", "GitHub", "[gmail-dummy-app] Build succeeded", "Build APK workflow completed successfully on main.", "2:40 pm", 0xFF24292F, true, false, null)
                 .from("notifications@github.com").verified()
                 .body("Build APK workflow completed successfully on main.\n\nArtifacts:\n• gmail-dummy-debug-apk\n\nView the run at github.com/phoenix/gmail-dummy-app/actions"));
         mails.add(new Mail("Primary", "Priya Sharma", "Weekend plans", "Are we still on for brunch this Saturday? I found a lovely new place downtown.", "2:24 pm", 0xFF8E24AA, true, false, null)
                 .important()
-                .body("Hi Alex,\n\nAre we still on for brunch this Saturday? I found a lovely new place downtown – they do the best pancakes and the coffee is great.\n\nI was thinking 11 AM so we can beat the rush. Let me know if that works, and feel free to bring Sam along!\n\nCheers,\nPriya"));
+                .body("Hi Sayali,\n\nAre we still on for brunch this Saturday? I found a lovely new place downtown – they do the best pancakes and the coffee is great.\n\nI was thinking 11 AM so we can beat the rush. Let me know if that works, and feel free to bring Sam along!\n\nCheers,\nPriya"));
         mails.add(new Mail("Primary", "Design Team", "Q4 product launch deck ✨", "Hi all, the latest mockups are ready for review. Please leave your comments by Friday.", "2:14 pm", 0xFF00897B, true, false, "Q4_Launch_Deck.pdf")
                 .from("design-team@phoenix.dev").thread(4)
                 .body("Hi all,\n\nThe latest mockups for the Q4 launch are ready for review. The attached deck covers the new onboarding flow, the refreshed home screen and the updated brand colours.\n\nPlease leave your comments directly in the deck by Friday so we can lock the designs before the sprint planning on Monday.\n\nThanks!\nDesign Team"));
@@ -91,6 +96,6 @@ final class MailStore {
         mails.add(new Mail("Sent", "me", "Re: Weekend plans", "Sounds great! 11 works for me.", "19 Sept", ME_COLOR, false, false, null)
                 .from(ME).to("Priya Sharma"));
         mails.add(new Mail("Primary", "Sarah Lee", "Coffee next week?", "It’s been a while! Would love to catch up if you’re free Tuesday or Wednesday.", "18 Sept", 0xFF6D4C41, false, false, null)
-                .body("Hi Alex,\n\nIt’s been a while! Would love to catch up if you’re free Tuesday or Wednesday. There’s a new café near your office I’ve been wanting to try.\n\nSarah"));
+                .body("Hi Sayali,\n\nIt’s been a while! Would love to catch up if you’re free Tuesday or Wednesday. There’s a new café near your office I’ve been wanting to try.\n\nSarah"));
     }
 }

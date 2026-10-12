@@ -139,7 +139,7 @@ public class MainActivity extends BaseActivity {
             }
         });
         searchField.setOnEditorActionListener((v, actionId, event) -> { hideKeyboard(); return true; });
-        account.setOnClickListener(v -> toast(MailStore.ME));
+        account.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         findViewById(R.id.btn_close_selection).setOnClickListener(v -> { selected.clear(); refresh(); });
         findViewById(R.id.btn_archive).setOnClickListener(v -> removeSelected("archived"));
         findViewById(R.id.btn_delete).setOnClickListener(v -> removeSelected("moved to Bin"));
@@ -594,7 +594,7 @@ public class MainActivity extends BaseActivity {
         boolean isSelected = selected.contains(m);
         h.card.setBackground(pill(color(isSelected ? R.color.selected_row : R.color.card), 4));
         h.avatar.setBackground(oval(isSelected ? color(R.color.check_bg) : m.color));
-        h.avatar.setText(isSelected ? "" : m.isOutgoing() ? "A" : m.initial());
+        h.avatar.setText(isSelected ? "" : m.isOutgoing() ? MailStore.ME_INITIAL : m.initial());
         h.check.setVisibility(isSelected ? View.VISIBLE : View.GONE);
 
         if (m.category.equals("Drafts")) h.sender.setText(draftLabel(m));

@@ -38,7 +38,7 @@ public class MeetActivity extends BaseActivity {
         padForSystemBars(root, root, nav);
 
         findViewById(R.id.btn_menu).setOnClickListener(v -> openMail(true));
-        findViewById(R.id.account).setOnClickListener(v -> toast(MailStore.ME));
+        findViewById(R.id.account).setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         findViewById(R.id.btn_new_meeting).setOnClickListener(v -> showNewMeetingSheet());
         findViewById(R.id.btn_join).setOnClickListener(v -> startActivity(new Intent(this, JoinMeetingActivity.class)));
         setupCarousel();

@@ -42,5 +42,9 @@
             android:name=".SettingsActivity"
             android:screenOrientation="portrait"
             android:exported="false" />
+        <activity
+            android:name=".ProfileActivity"
+            android:screenOrientation="portrait"
+            android:exported="false" />
     </application>
 </manifest>

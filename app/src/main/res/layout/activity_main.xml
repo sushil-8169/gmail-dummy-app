@@ -61,7 +61,7 @@
                     android:background="@drawable/bg_account"
                     android:fontFamily="sans-serif"
                     android:gravity="center"
-                    android:text="A"
+                    android:text="S"
                     android:textColor="#FFFFFF"
                     android:textSize="18sp" />
             </LinearLayout>
