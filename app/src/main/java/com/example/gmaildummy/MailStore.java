@@ -54,10 +54,10 @@ final class MailStore {
     }
 
     private static void seed() {
-        mails.add(new Mail("Primary", "Nullplex HR Team", "Shortlisted for II Technical Round – Quality Analyst", "Dear Candidate, Greetings from Nullplex Software Private Limited! We are pleased to inform you that you have successfully cleared the previous round…", "3:05 pm", 0xFF5E35B1, true, false, null)
+        mails.add(new Mail("Primary", "Nullplex HR Team", "Shortlisted for II Technical Round – Quality Analyst", "Dear Candidate, Greetings from Nullplex Software Private Limited! We are pleased to inform you that you have successfully cleared the previous round…", "12:25 pm", 0xFF5E35B1, true, false, null)
                 .from("hr@nullplex.in").important()
                 .body("Dear Candidate,\n\nGreetings from Nullplex Software Private Limited!\n\nWe are pleased to inform you that you have successfully cleared the previous round of our recruitment process and have been shortlisted for the second Technical Round for the position of Quality Analyst.\n\nYour profile and performance in the previous round were found suitable for the role, and we would like to proceed with the next stage of the selection process.\n\nInterview Details:\n\n• Position: Quality Analyst\n• Round: II Technical Round\n• Date: 17 October 2026\n• Time: 1 PM\n• Mode: Face-to-Face\n\nKindly confirm your availability for the scheduled interview. Further details regarding the interview will be shared with you shortly.\n\nWe appreciate your interest in joining Nullplex Software Private Limited and wish you the very best for the next round.\n\nBest regards,\nHR Team\nNullplex Software Pvt. Ltd.\nhr@nullplex.in"));
-        mails.add(new Mail("Updates", "GitHub", "[gmail-dummy-app] Build succeeded", "Build APK workflow completed successfully on main.", "2:40 pm", 0xFF24292F, true, false, null)
+        mails.add(new Mail("Updates", "GitHub", "Socialized your workflow", "Build APK workflow completed successfully on main.", "2:40 pm", 0xFF24292F, true, false, null)
                 .from("notifications@github.com").verified()
                 .body("Build APK workflow completed successfully on main.\n\nArtifacts:\n• gmail-dummy-debug-apk\n\nView the run at github.com/phoenix/gmail-dummy-app/actions"));
         mails.add(new Mail("Primary", "Priya Sharma", "Weekend plans", "Are we still on for brunch this Saturday? I found a lovely new place downtown.", "2:24 pm", 0xFF8E24AA, true, false, null)
